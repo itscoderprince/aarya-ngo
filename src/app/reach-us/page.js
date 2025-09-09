@@ -90,11 +90,11 @@ export default function ReachUsPage() {
 
           {/* Contact Info */}
           <div className="bg-white p-8 rounded-xl shadow">
-            <h2 className="text-2xl font-bold text-[rgb(1,23,40)] mb-6">Our Office</h2>
-            <p className="text-gray-700 mb-4">
+            {/* <h2 className="text-2xl font-bold text-[rgb(1,23,40)] mb-6">Our Office</h2> */}
+            {/* <p className="text-gray-700 mb-4">
               Prayas by Aarya Foundation <br />
               123 NGO Street, New Delhi, India
-            </p>
+            </p> */}
             <p className="text-gray-700 mb-2">
               <strong>Phone:</strong> +91 98765 43210
             </p>

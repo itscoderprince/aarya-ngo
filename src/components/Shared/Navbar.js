@@ -59,14 +59,14 @@ export default function Navbar() {
     // },
     //     { href: "/blog", label: "Blog" },
 
-            {
-      label: "Contact us",
-      subLinks: [
-        { href: "/reach-us", label: "Reach Us" },
-        { href: "/faqs", label: "FAQs" },
+    //         {
+    //   label: "Contact us",
+    //   subLinks: [
+    //     { href: "/reach-us", label: "Reach Us" },
+    //     { href: "/faqs", label: "FAQs" },
        
-      ],
-    },
+    //   ],
+    // },
   ]
 
   return (
