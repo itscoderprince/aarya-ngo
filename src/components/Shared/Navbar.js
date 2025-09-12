@@ -12,61 +12,61 @@ export default function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    // {
-    //   // label: "About Us",
-    //   label: "Who We Are?",
-    //   subLinks: [
-    //     { href: "/overview", label: "Overview" },
-    //     { href: "/missionview", label: "Vision & Mission" },
-    //     // { href: "/who-we-are", label: "Who We Are?" },
-    //     // { href: "/what-we-do", label: "What We Do?" },
-    //     // { href: "/get-involved", label: "Get Involved" },
-    //     { href: "/our-team", label: "Our Team" },
-    //     { href: "/certificate", label: "Certificate" },
+    {
+      // label: "About Us",
+      label: "Who We Are?",
+      subLinks: [
+        { href: "/overview", label: "Overview" },
+        { href: "/missionview", label: "Vision & Mission" },
+        // { href: "/who-we-are", label: "Who We Are?" },
+        // { href: "/what-we-do", label: "What We Do?" },
+        // { href: "/get-involved", label: "Get Involved" },
+        { href: "/our-team", label: "Our Team" },
+        { href: "/certificate", label: "Certificate" },
 
-    //   ],
-    // },
-    //  {
-    //   label: "What We Do?",
-    //   subLinks: [
-    //     { href: "/education", label: "Education" },
-    //     { href: "/healthcare", label: "HealthCare" },
-    //     // { href: "/community-support", label: "Community Support" },
+      ],
+    },
+     {
+      label: "What We Do?",
+      subLinks: [
+        { href: "/education", label: "Education" },
+        { href: "/healthcare", label: "HealthCare" },
+        // { href: "/community-support", label: "Community Support" },
 
-    //     { href: "/women-empowerment", label: "Women Empowernment" },
+        { href: "/women-empowerment", label: "Women Empowernment" },
 
        
-    //   ],
-    // },
+      ],
+    },
 
-    //         {
-    //   label: "News & stories",
-    //   subLinks: [
-    //     { href: "/photo-gallery", label: "Photo Gallery" },
-    //     { href: "/video-gallery", label: "Video Gallery" },
-    //     { href: "/resources", label: "Resources" },
+            {
+      label: "News & stories",
+      subLinks: [
+        { href: "/photo-gallery", label: "Photo Gallery" },
+        { href: "/video-gallery", label: "Video Gallery" },
+        { href: "/resources", label: "Resources" },
     
-    //   ],
-    // },
-    //   {
-    //   label: "Get Involved",
-    //   subLinks: [
+      ],
+    },
+      {
+      label: "Get Involved",
+      subLinks: [
 
-    //     { href: "/work-with-us", label: "Work with us" },
-    //     { href: "/corporate-partnership", label: "Corporate partnership" },
+        { href: "/work-with-us", label: "Work with us" },
+        { href: "/corporate-partnership", label: "Corporate partnership" },
        
-    //   ],
-    // },
-    //     { href: "/blog", label: "Blog" },
+      ],
+    },
+        { href: "/blog", label: "Blog" },
 
-    //         {
-    //   label: "Contact us",
-    //   subLinks: [
-    //     { href: "/reach-us", label: "Reach Us" },
-    //     { href: "/faqs", label: "FAQs" },
+            {
+      label: "Contact us",
+      subLinks: [
+        { href: "/reach-us", label: "Reach Us" },
+        { href: "/faqs", label: "FAQs" },
        
-    //   ],
-    // },
+      ],
+    },
   ]
 
   return (
