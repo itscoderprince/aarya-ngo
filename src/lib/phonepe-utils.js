@@ -1,47 +1,60 @@
 import crypto from "crypto"
 
-// PhonePe configuration
+// 🔐 PhonePe configuration
 export const PHONEPE_CONFIG = {
   BASE_URL:
     process.env.NODE_ENV === "production"
-      ? "https://api.phonepe.com/apis/hermes"
-      : "https://api-preprod.phonepe.com/apis/pg-sandbox",
-  MERCHANT_ID: "SU2509101240319707979509",
-  SALT_KEY: "1e7df590-7ae7-45a5-ad27-7a661ae902dc",
-  SALT_INDEX: 1,
+      ? "https://api.phonepe.com/apis/hermes" // Production
+      : "https://api-preprod.phonepe.com/apis/pg-sandbox", // Sandbox
+  MERCHANT_ID: process.env.PHONEPE_MERCHANT_ID || "SU2509101240319707979509",
+  SALT_KEY: process.env.PHONEPE_SALT_KEY || "1e7df590-7ae7-45a5-ad27-7a661ae902dc",
+  SALT_INDEX: process.env.PHONEPE_SALT_INDEX || 1,
 }
 
-// Generate checksum for PhonePe API requests
+// ✅ Generate checksum for PhonePe API requests
 export function generateChecksum(payload, endpoint) {
   const checksumString = payload + endpoint + PHONEPE_CONFIG.SALT_KEY
-  return crypto.createHash("sha256").update(checksumString).digest("hex") + "###" + PHONEPE_CONFIG.SALT_INDEX
+  return (
+    crypto.createHash("sha256").update(checksumString).digest("hex") +
+    "###" +
+    PHONEPE_CONFIG.SALT_INDEX
+  )
 }
 
-// Generate unique transaction ID
+// ✅ Generate unique transaction ID
 export function generateTransactionId() {
-  return `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `TXN_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
-// Create payment payload for PhonePe
+// ✅ Create payment payload for PhonePe
 export function createPaymentPayload(donorDetails, transactionId) {
-  const { phone, amount } = donorDetails
+  const { phone, amount, name, email } = donorDetails
 
   return {
     merchantId: PHONEPE_CONFIG.MERCHANT_ID,
     merchantTransactionId: transactionId,
     merchantUserId: `USER_${Date.now()}`,
-    amount: amount * 100, // Convert to paise
-    redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/donate-success?txnId=${transactionId}`,
+    amount: amount * 100, // Convert ₹ to paise
+    redirectUrl: `${
+      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    }/donate-success?txnId=${transactionId}`,
     redirectMode: "POST",
-    callbackUrl: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/payment-callback`,
+    callbackUrl: `${
+      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    }/api/payment-callback`,
     mobileNumber: phone,
     paymentInstrument: {
       type: "PAY_PAGE",
     },
+    // Optional metadata for records
+    metadata: {
+      donorName: name,
+      donorEmail: email,
+    },
   }
 }
 
-// Verify payment status with PhonePe
+// ✅ Verify payment status with PhonePe
 export async function verifyPaymentStatus(transactionId) {
   try {
     const endpoint = `/pg/v1/status/${PHONEPE_CONFIG.MERCHANT_ID}/${transactionId}`
@@ -63,7 +76,7 @@ export async function verifyPaymentStatus(transactionId) {
   }
 }
 
-// Validate donation form data
+// ✅ Validate donation form data
 export function validateDonationData(data) {
   const { name, email, phone, amount } = data
   const errors = []
@@ -94,7 +107,7 @@ export function validateDonationData(data) {
   }
 }
 
-// Format amount for display
+// ✅ Format amount for display
 export function formatAmount(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -104,13 +117,13 @@ export function formatAmount(amount) {
   }).format(amount)
 }
 
-// Generate receipt number
+// ✅ Generate receipt number
 export function generateReceiptNumber() {
   const date = new Date()
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
-  const random = Math.random().toString(36).substr(2, 6).toUpperCase()
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase()
 
   return `PBAF${year}${month}${day}${random}`
 }

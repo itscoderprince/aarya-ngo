@@ -11,47 +11,40 @@ export async function POST(request) {
   try {
     const donorData = await request.json()
 
-    // Validate donation data
+    // ✅ Validate input
     const validation = validateDonationData(donorData)
     if (!validation.isValid) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Validation failed",
-          errors: validation.errors,
-        },
-        { status: 400 },
+        { success: false, message: "Validation failed", errors: validation.errors },
+        { status: 400 }
       )
     }
 
-    // Generate unique transaction ID
+    // ✅ Generate unique transaction ID
     const transactionId = generateTransactionId()
 
-    // Create payment payload
+    // ✅ Create payload
     const paymentPayload = createPaymentPayload(donorData, transactionId)
-
-    // Create base64 encoded payload
     const base64Payload = Buffer.from(JSON.stringify(paymentPayload)).toString("base64")
 
-    // Create checksum
+    // ✅ Generate checksum
     const checksum = generateChecksum(base64Payload, "/pg/v1/pay")
 
-    // Make request to PhonePe
+    // ✅ Make request to PhonePe
     const response = await fetch(`${PHONEPE_CONFIG.BASE_URL}/pg/v1/pay`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-VERIFY": checksum,
+        "X-MERCHANT-ID": PHONEPE_CONFIG.MERCHANT_ID, // 🔥 required
       },
-      body: JSON.stringify({
-        request: base64Payload,
-      }),
+      body: JSON.stringify({ request: base64Payload }),
     })
 
     const responseData = await response.json()
+    console.log("📡 PhonePe Raw Response:", responseData)
 
     if (responseData.success) {
-      // Store donor details temporarily (in production, use a proper database)
       global.pendingDonations = global.pendingDonations || {}
       global.pendingDonations[transactionId] = {
         ...donorData,
@@ -62,26 +55,16 @@ export async function POST(request) {
       return NextResponse.json({
         success: true,
         paymentUrl: responseData.data.instrumentResponse.redirectInfo.url,
-        transactionId: transactionId,
+        transactionId,
       })
     } else {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Payment initiation failed",
-          error: responseData.message,
-        },
-        { status: 400 },
+        { success: false, message: "Payment initiation failed", phonepeError: responseData },
+        { status: 400 }
       )
     }
   } catch (error) {
     console.error("Payment creation error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Internal server error",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }

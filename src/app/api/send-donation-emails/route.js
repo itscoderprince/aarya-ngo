@@ -2,15 +2,16 @@ import { NextResponse } from "next/server"
 import nodemailer from "nodemailer"
 import { generateDonorEmailTemplate, generateAdminEmailTemplate, emailConfig } from "../../../lib/email-templates"
 
-const transporter = nodemailer.createTransporter(emailConfig)
+// ✅ FIX: use createTransport (not createTransporter)
+const transporter = nodemailer.createTransport(emailConfig)
 
 export async function POST(request) {
   try {
     const { donorDetails, transactionDetails } = await request.json()
-    const { name, email, phone, pan, amount } = donorDetails
+    const { name, email, amount } = donorDetails
     const { transactionId, status, paymentMethod } = transactionDetails
 
-    // Send confirmation email to donor
+    // Email for donor
     const userEmailOptions = {
       from: "prayasbyaaryafoundation@gmail.com",
       to: email,
@@ -18,7 +19,7 @@ export async function POST(request) {
       html: generateDonorEmailTemplate(donorDetails, transactionDetails),
     }
 
-    // Send notification email to admin
+    // Email for admin
     const adminEmailOptions = {
       from: "prayasbyaaryafoundation@gmail.com",
       to: "prayasbyaaryafoundation@gmail.com",
@@ -26,8 +27,11 @@ export async function POST(request) {
       html: generateAdminEmailTemplate(donorDetails, transactionDetails),
     }
 
-    // Send both emails
-    await Promise.all([transporter.sendMail(userEmailOptions), transporter.sendMail(adminEmailOptions)])
+    // ✅ Send both emails simultaneously
+    await Promise.all([
+      transporter.sendMail(userEmailOptions),
+      transporter.sendMail(adminEmailOptions),
+    ])
 
     return NextResponse.json({
       success: true,
@@ -41,7 +45,7 @@ export async function POST(request) {
         message: "Failed to send emails",
         error: error.message,
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
