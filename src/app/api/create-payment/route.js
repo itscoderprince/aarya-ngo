@@ -1,69 +1,73 @@
 import { NextResponse } from "next/server";
-import {
-  createPaymentPayload,
-  generateTransactionId,
-  generateChecksum,
-  validateDonationData,
-  PHONEPE_CONFIG,
-} from "../../../lib/phonepe-utils";
+import crypto from "crypto";
 
 export async function POST(request) {
   try {
     const donorData = await request.json();
 
-    // ✅ Validate user donation info
-    const validation = validateDonationData(donorData);
-    if (!validation.isValid) {
+    // ✅ Validate fields
+    if (!donorData.name || !donorData.phone || !donorData.amount) {
       return NextResponse.json(
-        { success: false, message: "Validation failed", errors: validation.errors },
+        { success: false, message: "Validation failed" },
         { status: 400 }
       );
     }
 
-    // ✅ Create transaction reference
-    const transactionId = generateTransactionId();
-    donorData.transactionId = transactionId;
+    if (donorData.amount < 10) {
+      return NextResponse.json(
+        { success: false, message: "Minimum donation is ₹10" },
+        { status: 400 }
+      );
+    }
 
-    // ✅ Save donation in memory (temporary)
-    global.pendingDonations = global.pendingDonations || {};
-    global.pendingDonations[transactionId] = {
-      ...donorData,
-      status: "pending",
-      createdAt: Date.now(),
+    // ✅ Generate Transaction ID
+    const transactionId = `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+    const payload = {
+      merchantId: process.env.PHONEPE_MERCHANT_ID,
+      merchantTransactionId: transactionId,
+      merchantUserId: donorData.phone,
+      name: donorData.name,
+      amount: donorData.amount * 100, // paise
+      redirectUrl: process.env.PHONEPE_REDIRECT_URL,
+      redirectMode: "REDIRECT",
+      callbackUrl: process.env.PHONEPE_CALLBACK_URL,
+      paymentInstrument: { type: "PAY_PAGE" },
     };
 
-    // ✅ Prepare PhonePe payload
-    const paymentPayload = createPaymentPayload(donorData, transactionId);
-    const base64Payload = Buffer.from(JSON.stringify(paymentPayload)).toString("base64");
+    const base64Payload = Buffer.from(JSON.stringify(payload)).toString("base64");
 
-    // ✅ Correct checksum
+    // ✅ Correct checksum formula
     const endpoint = "/pg/v1/pay";
-    const checksum = generateChecksum(base64Payload, endpoint);
+    const raw = base64Payload + endpoint + process.env.PHONEPE_SALT_KEY;
 
-    // ✅ Request to PhonePe
-    const response = await fetch(`${PHONEPE_CONFIG.BASE_URL}${endpoint}`, {
+    const checksum =
+      crypto.createHash("sha256").update(raw).digest("hex") +
+      "###" +
+      process.env.PHONEPE_SALT_INDEX;
+
+    // ✅ PhonePe API Call
+    const response = await fetch(`${process.env.PHONEPE_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-VERIFY": checksum,
-        "X-MERCHANT-ID": PHONEPE_CONFIG.MERCHANT_ID, // ✅ Mandatory header
+        "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID,
       },
       body: JSON.stringify({ request: base64Payload }),
     });
 
     const result = await response.json();
-    console.log("📡 PHONEPE CREATE PAYMENT RESPONSE =>", JSON.stringify(result, null, 2));
+    console.log("📡 PHONEPE RESPONSE =>", result);
 
-    // ✅ Success — return redirect URL
     if (result?.success && result?.data?.instrumentResponse?.redirectInfo?.url) {
       return NextResponse.json({
         success: true,
-        paymentUrl: result.data.instrumentResponse.redirectInfo.url,
         transactionId,
+        paymentUrl: result.data.instrumentResponse.redirectInfo.url,
       });
     }
 
-    // ❌ Failed — show error
     return NextResponse.json(
       {
         success: false,
@@ -72,11 +76,10 @@ export async function POST(request) {
       },
       { status: 400 }
     );
-
   } catch (err) {
-    console.error("❌ PHONEPE API ERROR =>", err);
+    console.error("❌ PHONEPE INIT ERROR =>", err);
     return NextResponse.json(
-      { success: false, message: "Internal Server Error", error: err.message },
+      { success: false, message: "Server Error", error: err.message },
       { status: 500 }
     );
   }
