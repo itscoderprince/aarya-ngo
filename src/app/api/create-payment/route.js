@@ -6,11 +6,17 @@ export async function POST(request) {
     const donor = await request.json();
 
     if (!donor.name || !donor.phone || !donor.amount) {
-      return NextResponse.json({ success: false, message: "Invalid input" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Invalid input" },
+        { status: 400 }
+      );
     }
 
     if (donor.amount < 10) {
-      return NextResponse.json({ success: false, message: "Minimum donation ₹10" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Minimum donation ₹10" },
+        { status: 400 }
+      );
     }
 
     const transactionId = `PRAYAS_${Date.now()}`;
@@ -39,13 +45,14 @@ export async function POST(request) {
       headers: {
         "Content-Type": "application/json",
         "X-VERIFY": checksum,
-        "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID
+        "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID,
+        "X-CALLBACK-URL": process.env.PHONEPE_CALLBACK_URL
       },
       body: JSON.stringify({ request: base64Payload })
     });
 
     const result = await response.json();
-    console.log("📡 PHONEPE API =>", result);
+    console.log("📡 PHONEPE API RESPONSE =>", result);
 
     if (result?.success && result?.data?.instrumentResponse?.redirectInfo?.url) {
       return NextResponse.json({
@@ -55,10 +62,16 @@ export async function POST(request) {
       });
     }
 
-    return NextResponse.json({ success: false, error: result }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Payment init failed", data: result },
+      { status: 400 }
+    );
 
   } catch (error) {
-    console.error("❌ ERROR:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    console.error("❌ PHONEPE ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: 500 }
+    );
   }
 }
