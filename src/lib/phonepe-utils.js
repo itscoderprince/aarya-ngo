@@ -1,66 +1,59 @@
 import crypto from "crypto"
 
-// 🔐 PhonePe configuration
 export const PHONEPE_CONFIG = {
   BASE_URL:
     process.env.NODE_ENV === "production"
-      ? "https://api.phonepe.com/apis/hermes" // Production
-      : "https://api-preprod.phonepe.com/apis/pg-sandbox", // Sandbox
-  MERCHANT_ID: process.env.PHONEPE_MERCHANT_ID || "SU2509101240319707979509",
-  SALT_KEY: process.env.PHONEPE_SALT_KEY || "1e7df590-7ae7-45a5-ad27-7a661ae902dc",
+      ? "https://api.phonepe.com/apis/hermes"
+      : "https://api-preprod.phonepe.com/apis/pg-sandbox",
+  MERCHANT_ID: process.env.PHONEPE_MERCHANT_ID,
+  SALT_KEY: process.env.PHONEPE_SALT_KEY,
   SALT_INDEX: process.env.PHONEPE_SALT_INDEX || 1,
 }
 
-// ✅ Generate checksum for PhonePe API requests
+// ✅ Create unique merchant transaction ID
+export function generateTransactionId() {
+  return `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
+}
+
+// ✅ Generate X-VERIFY checksum
 export function generateChecksum(payload, endpoint) {
   const checksumString = payload + endpoint + PHONEPE_CONFIG.SALT_KEY
-  return (
-    crypto.createHash("sha256").update(checksumString).digest("hex") +
-    "###" +
-    PHONEPE_CONFIG.SALT_INDEX
-  )
+  const sha256 = crypto.createHash("sha256").update(checksumString).digest("hex")
+  return `${sha256}###${PHONEPE_CONFIG.SALT_INDEX}`
 }
 
-// ✅ Generate unique transaction ID
-export function generateTransactionId() {
-  return `TXN_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-}
-
-// ✅ Create payment payload for PhonePe
+// ✅ Create PhonePe payment request Body
 export function createPaymentPayload(donorDetails, transactionId) {
-  const { phone, amount, name, email } = donorDetails
+  const { name, phone, email, amount } = donorDetails
 
-  return {
+  const payload = {
     merchantId: PHONEPE_CONFIG.MERCHANT_ID,
     merchantTransactionId: transactionId,
+    amount: Number(amount) * 100,
     merchantUserId: `USER_${Date.now()}`,
-    amount: amount * 100, // Convert ₹ to paise
-    redirectUrl: `${
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    }/donate-success?txnId=${transactionId}`,
+    redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/donate-success?txnId=${transactionId}`,
     redirectMode: "POST",
-    callbackUrl: `${
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    }/api/payment-callback`,
+    callbackUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payment-callback`,
     mobileNumber: phone,
     paymentInstrument: {
       type: "PAY_PAGE",
     },
-    // Optional metadata for records
     metadata: {
       donorName: name,
       donorEmail: email,
     },
   }
+
+  return payload
 }
 
-// ✅ Verify payment status with PhonePe
+// ✅ Verify status
 export async function verifyPaymentStatus(transactionId) {
   try {
     const endpoint = `/pg/v1/status/${PHONEPE_CONFIG.MERCHANT_ID}/${transactionId}`
     const checksum = generateChecksum("", endpoint)
 
-    const response = await fetch(`${PHONEPE_CONFIG.BASE_URL}${endpoint}`, {
+    const res = await fetch(`${PHONEPE_CONFIG.BASE_URL}${endpoint}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -69,61 +62,46 @@ export async function verifyPaymentStatus(transactionId) {
       },
     })
 
-    return await response.json()
-  } catch (error) {
-    console.error("Payment verification error:", error)
-    throw error
+    const data = await res.json()
+    return data
+  } catch (err) {
+    console.error("PhonePe status error:", err)
+    return { success: false, message: "PhonePe API error" }
   }
 }
 
-// ✅ Validate donation form data
+// ✅ Validate input
 export function validateDonationData(data) {
   const { name, email, phone, amount } = data
   const errors = []
 
-  if (!name || name.trim().length < 2) {
-    errors.push("Name must be at least 2 characters long")
-  }
+  if (!name || name.trim().length < 2)
+    errors.push("Name must be at least 2 characters")
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    errors.push("Enter a valid email")
+  if (!phone || !/^[6-9]\d{9}$/.test(phone))
+    errors.push("Enter valid 10-digit phone")
+  if (!amount || amount < 1)
+    errors.push("Minimum donation is ₹1")
+  if (amount > 1000000)
+    errors.push("Max donation allowed is ₹10,00,000")
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.push("Please enter a valid email address")
-  }
-
-  if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
-    errors.push("Please enter a valid 10-digit mobile number")
-  }
-
-  if (!amount || amount < 1) {
-    errors.push("Donation amount must be at least ₹1")
-  }
-
-  if (amount > 1000000) {
-    errors.push("Donation amount cannot exceed ₹10,00,000")
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  }
+  return { isValid: errors.length === 0, errors }
 }
 
-// ✅ Format amount for display
+// ✅ Format Rupee
 export function formatAmount(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
   }).format(amount)
 }
 
-// ✅ Generate receipt number
+// ✅ Generate Donation Receipt No.
 export function generateReceiptNumber() {
-  const date = new Date()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase()
-
-  return `PBAF${year}${month}${day}${random}`
+  const d = new Date()
+  return `PBAF${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
+    d.getDate()
+  ).padStart(2, "0")}${Math.random().toString(36).substring(2, 8).toUpperCase()}`
 }

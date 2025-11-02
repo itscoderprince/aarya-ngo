@@ -1,44 +1,62 @@
-import { NextResponse } from "next/server"
-import nodemailer from "nodemailer"
-import { generateDonorEmailTemplate, generateAdminEmailTemplate, emailConfig } from "../../../lib/email-templates"
-
-// ✅ FIX: use createTransport (not createTransporter)
-const transporter = nodemailer.createTransport(emailConfig)
+import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
+import {
+  generateDonorEmailTemplate,
+  generateAdminEmailTemplate,
+  emailConfig
+} from "../../../lib/email-templates";
 
 export async function POST(request) {
   try {
-    const { donorDetails, transactionDetails } = await request.json()
-    const { name, email, amount } = donorDetails
-    const { transactionId, status, paymentMethod } = transactionDetails
+    const { donorDetails, transactionDetails } = await request.json();
 
-    // Email for donor
-    const userEmailOptions = {
-      from: "prayasbyaaryafoundation@gmail.com",
+    if (!donorDetails?.email) {
+      return NextResponse.json(
+        { success: false, message: "Donor email missing" },
+        { status: 400 }
+      );
+    }
+
+    const { name, email, amount } = donorDetails;
+    const { transactionId, status, paymentMethod } = transactionDetails;
+
+    // ✅ Setup SMTP Transporter
+    const transporter = nodemailer.createTransport({
+      ...emailConfig,
+      auth: {
+        user: process.env.EMAIL_USER || emailConfig.auth.user,
+        pass: process.env.EMAIL_PASSWORD || emailConfig.auth.pass,
+      },
+    });
+
+    // ✅ Donor Email
+    const donorMail = {
+      from: `"Prayas by Aarya Foundation" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Thank you for your donation - Prayas by Aarya Foundation",
+      subject: "🙏 Thank you for your donation!",
       html: generateDonorEmailTemplate(donorDetails, transactionDetails),
-    }
+    };
 
-    // Email for admin
-    const adminEmailOptions = {
-      from: "prayasbyaaryafoundation@gmail.com",
+    // ✅ Admin Notification Email
+    const adminMail = {
+      from: `"Donation Alert" <${process.env.EMAIL_USER}>`,
       to: "prayasbyaaryafoundation@gmail.com",
-      subject: `New Donation Received - ₹${amount.toLocaleString()} from ${name}`,
+      subject: `New Donation ₹${amount.toLocaleString()} – ${name}`,
       html: generateAdminEmailTemplate(donorDetails, transactionDetails),
-    }
+    };
 
-    // ✅ Send both emails simultaneously
+    // ✅ Send Emails Parallelly
     await Promise.all([
-      transporter.sendMail(userEmailOptions),
-      transporter.sendMail(adminEmailOptions),
-    ])
+      transporter.sendMail(donorMail),
+      transporter.sendMail(adminMail),
+    ]);
 
     return NextResponse.json({
       success: true,
-      message: "Emails sent successfully",
-    })
+      message: "Emails sent successfully ✅",
+    });
   } catch (error) {
-    console.error("Email sending error:", error)
+    console.error("❌ Email sending failed:", error);
     return NextResponse.json(
       {
         success: false,
@@ -46,6 +64,6 @@ export async function POST(request) {
         error: error.message,
       },
       { status: 500 }
-    )
+    );
   }
 }
