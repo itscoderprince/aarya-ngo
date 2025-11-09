@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import Navbar from "../../../components/Shared/Navbar"
-import Footer from "../../../components/Shared/Footer"
 import DonateButton from "../../../components/DonateButton/DonateButton"
 import { getBlogPostBySlug, allBlogPosts } from "../../../data/blog/index.js"
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday"
@@ -48,7 +46,6 @@ export default function BlogPostPage({ params }) {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
       <main>
         {/* Hero Section */}
         <section className="py-12" style={{ backgroundColor: "#fefefe" }}>
@@ -180,7 +177,6 @@ export default function BlogPostPage({ params }) {
           </section>
         )}
       </main>
-      <Footer />
     </div>
   )
 }

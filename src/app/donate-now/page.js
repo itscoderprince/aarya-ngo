@@ -4,8 +4,6 @@ import { useState } from "react";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import PersonIcon from "@mui/icons-material/Person";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
-import Navbar from "@/components/Shared/Navbar";
-import Footer from "@/components/Shared/Footer";
 
 export default function DonateNowPage() {
   const [formData, setFormData] = useState({
@@ -89,7 +87,6 @@ export default function DonateNowPage() {
 
   return (
     <>
-      <Navbar />
 
       <div className="min-h-screen bg-white">
         <main className="max-w-4xl mx-auto px-6 py-12">
@@ -188,8 +185,6 @@ export default function DonateNowPage() {
           </div>
         </main>
       </div>
-
-      <Footer />
     </>
   );
 }

@@ -1,10 +1,8 @@
-import Footer from "@/components/Shared/Footer"
-import Navbar from "@/components/Shared/Navbar"
+
 
 const Privacy=()=>{
     return (
         <>
-        <Navbar/>
         <p className="py-5 px-2">
 
          Introduction
@@ -26,7 +24,6 @@ Consent- By visiting our Platform or by providing your information, you consent 
 
 Changes to this Privacy Policy- Please check our Privacy Policy periodically for changes. We may update this Privacy Policy to reflect changes to our information practices. We may alert / notify you about the significant changes to the Privacy Policy, in the manner as may be required under applicable laws.
         </p>
-        <Footer/>
         </>
     )
 }

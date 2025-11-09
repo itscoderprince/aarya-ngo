@@ -2,8 +2,6 @@ import HomePageHero from "../components/HomePage/HomePageHero"
 import HomePageCTA from "../components/HomePage/HomePageCTA"
 import HomePageAbout from "../components/HomePage/HomePageAbout"
 import HomePageImpact from "../components/HomePage/HomePageImpact"
-import Navbar from "../components/Shared/Navbar"
-import Footer from "../components/Shared/Footer"
 import HomeCarousel from "@/components/HomePage/HomeCarousel"
 import HomeSubscribe from "@/components/HomePage/HomeSubscribe"
 import HomeCards from "@/components/HomePage/HomeCards"
@@ -17,13 +15,7 @@ export const metadata = {
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Navbar */}
-      <Navbar />
-
-      {/* Main Content */}
       <main className="flex-grow pt-[1px]"> 
-        {/* 👆 Matches Navbar height (h-16 = 64px) */}
-
         <HomeCarousel />
         <HomeCards/>
         <HomePageHero />
@@ -32,9 +24,6 @@ export default function HomePage() {
         <HomePageCTA />
         <HomeSubscribe />
       </main>
-
-      {/* Footer */}
-      <Footer />
     </div>
   )
 }

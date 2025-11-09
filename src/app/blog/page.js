@@ -1,6 +1,5 @@
 import Link from "next/link"
-import Navbar from "../../components/Shared/Navbar"
-import Footer from "../../components/Shared/Footer"
+
 import { allBlogPosts, blogCategories, getFeaturedPosts } from "../../data/blog/index.js"
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday"
 import PersonIcon from "@mui/icons-material/Person"
@@ -19,7 +18,7 @@ export default function BlogPage() {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+     
       <main>
         {/* Hero Section */}
         <section className="py-20" style={{ backgroundColor: "#fefefe" }}>
@@ -171,7 +170,7 @@ export default function BlogPage() {
           </div>
         </section>
       </main>
-      <Footer />
+  
     </div>
   )
 }

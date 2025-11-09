@@ -1,5 +1,3 @@
-import Navbar from "../../components/Shared/Navbar"
-import Footer from "../../components/Shared/Footer"
 import DonateButton from "../../components/DonateButton/DonateButton"
 import GroupsIcon from "@mui/icons-material/Groups"
 import VisibilityIcon from "@mui/icons-material/Visibility"
@@ -86,7 +84,6 @@ export default function WhoWeArePage() {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
       <main>
         {/* Hero Section */}
         <section className="py-20" style={{ backgroundColor: "#fefefe" }}>
@@ -282,7 +279,6 @@ export default function WhoWeArePage() {
           </div>
         </section>
       </main>
-      <Footer />
     </div>
   )
 }

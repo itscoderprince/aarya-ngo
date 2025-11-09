@@ -8,14 +8,12 @@ import Footer from "@/components/Shared/Footer"
 export default function WomenEmpowermentPage() {
   return (
     <>
-      <Navbar />
       <main className="flex-grow">
         <WomenEmpowermentHero />
         <WomenEmpowermentPrograms />
         <WomenEmpowermentImpact />
         <WomenEmpowermentCTA />
       </main>
-      <Footer />
     </>
   )
 }

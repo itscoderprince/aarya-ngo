@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-import Navbar from "@/components/Shared/Navbar";
-import Footer from "@/components/Shared/Footer";
-
 // ✅ Correct MUI Icons
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EmailIcon from "@mui/icons-material/Email";
@@ -55,7 +52,6 @@ export default function DonateSuccessPage() {
 
   return (
     <>
-      <Navbar />
       <div className="min-h-screen bg-white">
         <main className="max-w-4xl mx-auto px-6 py-12">
           {isLoading ? (
@@ -178,7 +174,7 @@ export default function DonateSuccessPage() {
           )}
         </main>
       </div>
-      <Footer />
+
     </>
   );
 }

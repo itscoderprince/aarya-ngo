@@ -25,6 +25,7 @@ export default function Navbar() {
     {
       label: "What We Do?",
       subLinks: [
+         { href: "/agriculture", label: "Agriculture" },
         { href: "/education", label: "Education" },
         { href: "/healthcare", label: "HealthCare" },
         { href: "/women-empowerment", label: "Women Empowerment" },

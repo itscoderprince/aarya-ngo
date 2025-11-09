@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-import Navbar from "@/components/Shared/Navbar";
-import Footer from "@/components/Shared/Footer";
-
 // ✅ Correct MUI Icons
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import ReplayIcon from "@mui/icons-material/Replay";
@@ -27,7 +24,7 @@ export default function DonateFailedPage() {
 
   return (
     <>
-      <Navbar />
+
 
       <div className="min-h-screen bg-white">
         <main className="max-w-4xl mx-auto px-6 py-12">
@@ -167,8 +164,6 @@ export default function DonateFailedPage() {
           </div>
         </main>
       </div>
-
-      <Footer />
     </>
   );
 }

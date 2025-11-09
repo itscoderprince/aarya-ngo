@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Navbar from "../../components/Shared/Navbar"
-import Footer from "../../components/Shared/Footer"
+
 
 
 export default function ReachUsPage() {
@@ -26,7 +25,7 @@ export default function ReachUsPage() {
 
   return (
     <>
-      <Navbar />
+      
 
       {/* Hero Section */}
       <section className="bg-[rgb(1,23,40)] text-white text-center py-16 px-6 lg:px-20">
@@ -121,7 +120,7 @@ export default function ReachUsPage() {
         </div>
       </section>
 
-      <Footer />
+   
     </>
   )
 }

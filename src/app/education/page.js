@@ -9,8 +9,7 @@ import EducationCTA from "@/components/Education/EducationCTA"
 export default function EducationPage() {
   return (
     <div className="">
-      {/* Navbar */}
-      <Navbar />
+  
 
       {/* Page Content */}
       <main className="flex-grow">
@@ -20,8 +19,6 @@ export default function EducationPage() {
         <EducationCTA />
       </main>
 
-      {/* Footer */}
-      <Footer />
     </div>
   )
 }
