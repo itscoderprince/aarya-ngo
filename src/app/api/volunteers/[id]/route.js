@@ -21,19 +21,22 @@ export async function PUT(request, { params }) {
     const token = authHeader?.replace("Bearer ", "")
 
     if (!token || token !== process.env.ADMIN_TOKEN) {
+      console.log("[v0] Authorization failed - token:", token, "env:", process.env.ADMIN_TOKEN)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     await connectDB()
 
     const contentType = request.headers.get("content-type")
-    let formData
     let jsonData = {}
+    let formData
 
     if (contentType?.includes("application/json")) {
       jsonData = await request.json()
-    } else {
+      console.log("[v0] Received JSON data:", jsonData)
+    } else if (contentType?.includes("multipart/form-data")) {
       formData = await request.formData()
+      console.log("[v0] Received form data")
     }
 
     const volunteer = await Volunteer.findById(params.id)
@@ -41,6 +44,7 @@ export async function PUT(request, { params }) {
 
     // Handle JSON updates (for approve/reject)
     if (jsonData.status) {
+      console.log("[v0] Updating status to:", jsonData.status)
       volunteer.status = jsonData.status
       if (jsonData.status === "approved") {
         volunteer.approvalDate = new Date()
@@ -48,52 +52,54 @@ export async function PUT(request, { params }) {
       }
       volunteer.updatedAt = new Date()
       await volunteer.save()
+      console.log("[v0] Status updated successfully")
       return NextResponse.json(volunteer)
     }
 
     // Handle FormData updates (for form edits)
-    const name = formData?.get("name")
-    const dob = formData?.get("dob")
-    const bloodGroup = formData?.get("bloodGroup")
-    const address = formData?.get("address")
-    const mobile = formData?.get("mobile")
-    const validity = formData?.get("validity")
-    const status = formData?.get("status")
-    const notes = formData?.get("notes")
-    const isPublished = formData?.get("isPublished")
+    if (formData) {
+      const name = formData?.get("name")
+      const dob = formData?.get("dob")
+      const bloodGroup = formData?.get("bloodGroup")
+      const address = formData?.get("address")
+      const mobile = formData?.get("mobile")
+      const validity = formData?.get("validity")
+      const status = formData?.get("status")
+      const notes = formData?.get("notes")
+      const isPublished = formData?.get("isPublished")
 
-    if (name) volunteer.name = name
-    if (dob) volunteer.dob = new Date(dob)
-    if (bloodGroup) volunteer.bloodGroup = bloodGroup
-    if (address) volunteer.address = address
-    if (mobile) volunteer.mobile = mobile
-    if (validity) volunteer.validity = validity
-    if (status) {
-      volunteer.status = status
-      if (status === "approved") {
-        volunteer.approvalDate = new Date()
-        volunteer.approvedBy = "admin"
-      }
-    }
-    if (notes !== null && notes !== undefined) volunteer.notes = notes
-    if (isPublished !== null && isPublished !== undefined) volunteer.isPublished = isPublished === "true"
-
-    const profilePicFile = formData?.get("profilePic")
-    if (profilePicFile && profilePicFile instanceof File) {
-      // Delete old profile pic if exists
-      if (volunteer.profilePicCloudinaryId) {
-        try {
-          await deleteFromCloudinary(volunteer.profilePicCloudinaryId)
-        } catch (err) {
-          console.log("[v0] Error deleting old profile pic:", err)
+      if (name) volunteer.name = name
+      if (dob) volunteer.dob = new Date(dob)
+      if (bloodGroup) volunteer.bloodGroup = bloodGroup
+      if (address) volunteer.address = address
+      if (mobile) volunteer.mobile = mobile
+      if (validity) volunteer.validity = validity
+      if (status) {
+        volunteer.status = status
+        if (status === "approved") {
+          volunteer.approvalDate = new Date()
+          volunteer.approvedBy = "admin"
         }
       }
-      // Upload new profile pic
-      const profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles")
-      volunteer.profilePicUrl = profilePicResult.secure_url
-      volunteer.profilePicCloudinaryId = profilePicResult.public_id
+      if (notes !== null && notes !== undefined) volunteer.notes = notes
+      if (isPublished !== null && isPublished !== undefined) volunteer.isPublished = isPublished === "true"
+
+      const profilePicFile = formData?.get("profilePic")
+      if (profilePicFile && profilePicFile instanceof File) {
+        // Delete old profile pic if exists
+        if (volunteer.profilePicCloudinaryId) {
+          try {
+            await deleteFromCloudinary(volunteer.profilePicCloudinaryId)
+          } catch (err) {
+            console.log("[v0] Error deleting old profile pic:", err)
+          }
+        }
+        // Upload new profile pic
+        const profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles")
+        volunteer.profilePicUrl = profilePicResult.secure_url
+        volunteer.profilePicCloudinaryId = profilePicResult.public_id
+      }
     }
-    // END CHANGE
 
     volunteer.updatedAt = new Date()
     await volunteer.save()
@@ -109,6 +115,8 @@ export async function DELETE(request, { params }) {
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "")
 
+    console.log("[v0] DELETE request - token:", token, "expected:", process.env.ADMIN_TOKEN)
+
     if (!token || token !== process.env.ADMIN_TOKEN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -118,6 +126,7 @@ export async function DELETE(request, { params }) {
     const volunteer = await Volunteer.findByIdAndDelete(params.id)
     if (!volunteer) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+    console.log("[v0] Volunteer deleted successfully:", params.id)
     return NextResponse.json({ message: "Deleted successfully" })
   } catch (error) {
     console.log("[v0] DELETE volunteer error:", error.message)

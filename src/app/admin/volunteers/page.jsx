@@ -112,19 +112,26 @@ export default function AdminVolunteers() {
       const token = localStorage.getItem("adminToken")
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ status: "approved" }),
       })
+
+      const data = await response.json()
+      console.log("[v0] Approve response:", data)
 
       if (response.ok) {
         setError("")
         fetchVolunteers()
       } else {
-        setError("Failed to approve volunteer")
+        console.log("[v0] Approve error response:", data)
+        setError(data.error || "Failed to approve volunteer")
       }
     } catch (err) {
       console.log("[v0] Approve error:", err)
-      setError("An error occurred while approving")
+      setError("An error occurred while approving: " + err.message)
     }
   }
 
@@ -133,19 +140,26 @@ export default function AdminVolunteers() {
       const token = localStorage.getItem("adminToken")
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ status: "rejected" }),
       })
+
+      const data = await response.json()
+      console.log("[v0] Reject response:", data)
 
       if (response.ok) {
         setError("")
         fetchVolunteers()
       } else {
-        setError("Failed to reject volunteer")
+        console.log("[v0] Reject error response:", data)
+        setError(data.error || "Failed to reject volunteer")
       }
     } catch (err) {
       console.log("[v0] Reject error:", err)
-      setError("An error occurred while rejecting")
+      setError("An error occurred while rejecting: " + err.message)
     }
   }
 
@@ -159,15 +173,19 @@ export default function AdminVolunteers() {
         headers: { Authorization: `Bearer ${token}` },
       })
 
+      const data = await response.json()
+      console.log("[v0] Delete response:", data)
+
       if (response.ok) {
         setError("")
         fetchVolunteers()
       } else {
-        setError("Failed to delete volunteer")
+        console.log("[v0] Delete error response:", data)
+        setError(data.error || "Failed to delete volunteer")
       }
     } catch (err) {
       console.log("[v0] Delete error:", err)
-      setError("An error occurred while deleting")
+      setError("An error occurred while deleting: " + err.message)
     }
   }
 
