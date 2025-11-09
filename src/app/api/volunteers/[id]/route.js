@@ -3,6 +3,17 @@ import Volunteer from "@/models/Volunteer"
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary"
 import { NextResponse } from "next/server"
 
+function validateAdminToken(token) {
+  if (!token) return false
+  try {
+    const decoded = Buffer.from(token, "base64").toString("utf-8")
+    const [username, password] = decoded.split(":")
+    return username === "admin" && password === "admin123"
+  } catch (e) {
+    return false
+  }
+}
+
 export async function GET(request, { params }) {
   try {
     await connectDB()
@@ -20,8 +31,8 @@ export async function PUT(request, { params }) {
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "")
 
-    if (!token || token !== process.env.ADMIN_TOKEN) {
-      console.log("[v0] Authorization failed - token:", token, "env:", process.env.ADMIN_TOKEN)
+    if (!token || !validateAdminToken(token)) {
+      console.log("[v0] Authorization failed - invalid token")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -115,9 +126,8 @@ export async function DELETE(request, { params }) {
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "")
 
-    console.log("[v0] DELETE request - token:", token, "expected:", process.env.ADMIN_TOKEN)
-
-    if (!token || token !== process.env.ADMIN_TOKEN) {
+    if (!token || !validateAdminToken(token)) {
+      console.log("[v0] DELETE Authorization failed - invalid token")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
