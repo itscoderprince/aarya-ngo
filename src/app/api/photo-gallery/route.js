@@ -2,16 +2,15 @@ import { connectDB } from "@/lib/mongodb"
 import PhotoGallery from "@/models/PhotoGallery"
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { withAdminAuth } from "@/middleware/adminAuth"
-import { NextResponse } from "next/server"
 
 export async function GET(request) {
   try {
     await connectDB()
     const photos = await PhotoGallery.find({ isActive: true }).sort({ order: 1 })
-    return NextResponse.json(photos)
+    return Response.json(photos)
   } catch (error) {
     console.log("[v0] GET photos error:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return Response.json({ error: error.message }, { status: 500 })
   }
 }
 
@@ -28,7 +27,7 @@ const POST = withAdminAuth(async (request) => {
     console.log("[v0] POST request - file:", file?.name, "title:", title)
 
     if (!file || !title) {
-      return NextResponse.json({ error: "File and title are required" }, { status: 400 })
+      return Response.json({ error: "File and title are required" }, { status: 400 })
     }
 
     const uploadResult = await uploadToCloudinary(file, "photo-gallery")
@@ -45,10 +44,10 @@ const POST = withAdminAuth(async (request) => {
 
     await photo.save()
     console.log("[v0] Photo saved:", photo._id)
-    return NextResponse.json(photo, { status: 201 })
+    return Response.json(photo, { status: 201 })
   } catch (error) {
     console.log("[v0] POST error:", error.message, error.stack)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return Response.json({ error: error.message }, { status: 500 })
   }
 })
 

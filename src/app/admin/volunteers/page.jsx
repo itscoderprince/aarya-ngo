@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import VolunteerApplicationForm from "@/components/admin/VolunteerApplicationForm"
+import VolunteerDetailModal from "@/components/admin/VolunteerDetailModal"
 
 export default function AdminVolunteers() {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function AdminVolunteers() {
   const [editingVolunteer, setEditingVolunteer] = useState(null)
   const [error, setError] = useState("")
   const [filter, setFilter] = useState("all")
+  const [viewingVolunteer, setViewingVolunteer] = useState(null)
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken")
@@ -24,16 +26,22 @@ export default function AdminVolunteers() {
 
   const fetchVolunteers = async () => {
     try {
+      setLoading(true)
       const token = localStorage.getItem("adminToken")
-      const response = await fetch("/api/volunteers", {
+      const response = await fetch("/api/volunteers?all=true", {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (response.ok) {
         const data = await response.json()
-        setVolunteers(data)
+        setVolunteers(Array.isArray(data) ? data : [])
+      } else {
+        setError("Failed to fetch volunteers")
+        setVolunteers([])
       }
     } catch (err) {
+      console.log("[v0] Fetch volunteers error:", err)
       setError("Failed to fetch volunteers")
+      setVolunteers([])
     } finally {
       setLoading(false)
     }
@@ -42,25 +50,44 @@ export default function AdminVolunteers() {
   const handleSubmit = async (formData) => {
     try {
       const token = localStorage.getItem("adminToken")
-      if (!editingVolunteer) {
-        setError("Invalid operation")
-        return
-      }
 
-      const response = await fetch(`/api/volunteers/${editingVolunteer._id}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
+      if (editingVolunteer && editingVolunteer._id) {
+        const response = await fetch(`/api/volunteers/${editingVolunteer._id}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        })
 
-      if (response.ok) {
-        setShowForm(false)
-        setEditingVolunteer(null)
-        fetchVolunteers()
+        const data = await response.json()
+
+        if (response.ok) {
+          setShowForm(false)
+          setEditingVolunteer(null)
+          setError("")
+          fetchVolunteers()
+        } else {
+          setError(data.error || "Failed to save volunteer")
+        }
       } else {
-        setError("Failed to save volunteer")
+        const response = await fetch("/api/volunteers", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          setShowForm(false)
+          setEditingVolunteer(null)
+          setError("")
+          fetchVolunteers()
+        } else {
+          setError(data.error || "Failed to create volunteer")
+        }
       }
     } catch (err) {
+      console.log("[v0] Submit volunteer error:", err)
       setError("An error occurred")
     }
   }
@@ -80,6 +107,79 @@ export default function AdminVolunteers() {
     setShowForm(true)
   }
 
+  const handleApprove = async (id) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/volunteers/${id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: "approved" }),
+      })
+
+      if (response.ok) {
+        setError("")
+        fetchVolunteers()
+      } else {
+        setError("Failed to approve volunteer")
+      }
+    } catch (err) {
+      console.log("[v0] Approve error:", err)
+      setError("An error occurred while approving")
+    }
+  }
+
+  const handleReject = async (id) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/volunteers/${id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: "rejected" }),
+      })
+
+      if (response.ok) {
+        setError("")
+        fetchVolunteers()
+      } else {
+        setError("Failed to reject volunteer")
+      }
+    } catch (err) {
+      console.log("[v0] Reject error:", err)
+      setError("An error occurred while rejecting")
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this volunteer?")) return
+
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/volunteers/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.ok) {
+        setError("")
+        fetchVolunteers()
+      } else {
+        setError("Failed to delete volunteer")
+      }
+    } catch (err) {
+      console.log("[v0] Delete error:", err)
+      setError("An error occurred while deleting")
+    }
+  }
+
+  const handleEdit = (volunteer) => {
+    setEditingVolunteer(volunteer)
+    setShowForm(true)
+  }
+
+  const handleViewDetails = (volunteer) => {
+    setViewingVolunteer(volunteer)
+  }
+
   const filteredVolunteers = volunteers.filter((v) => {
     if (filter === "all") return true
     return v.status === filter
@@ -96,6 +196,10 @@ export default function AdminVolunteers() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {viewingVolunteer && (
+        <VolunteerDetailModal volunteer={viewingVolunteer} onClose={() => setViewingVolunteer(null)} />
+      )}
+
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Volunteer Management</h1>
@@ -108,8 +212,12 @@ export default function AdminVolunteers() {
             </button>
             <button
               onClick={() => {
-                setEditingVolunteer(null)
-                setShowForm(!showForm)
+                if (showForm) {
+                  setShowForm(false)
+                  setEditingVolunteer(null)
+                } else {
+                  handleCreateNew()
+                }
               }}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
@@ -129,11 +237,12 @@ export default function AdminVolunteers() {
                 setShowForm(false)
                 setEditingVolunteer(null)
               }}
+              isAdminCreate={!editingVolunteer._id}
             />
           </div>
         )}
 
-        <div className="mb-6 flex gap-2">
+        <div className="mb-6 flex gap-2 flex-wrap">
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-2 rounded-lg ${
@@ -158,18 +267,37 @@ export default function AdminVolunteers() {
           >
             Approved ({volunteers.filter((v) => v.status === "approved").length})
           </button>
+          <button
+            onClick={() => setFilter("rejected")}
+            className={`px-4 py-2 rounded-lg ${
+              filter === "rejected" ? "bg-red-500 text-white" : "bg-white text-gray-700 border border-gray-300"
+            }`}
+          >
+            Rejected ({volunteers.filter((v) => v.status === "rejected").length})
+          </button>
         </div>
 
         {loading ? (
           <div className="text-center py-8">Loading...</div>
+        ) : filteredVolunteers.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">No volunteers found</div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {filteredVolunteers.map((volunteer) => (
               <div key={volunteer._id} className="bg-white rounded-lg shadow-lg p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">{volunteer.name}</h3>
-                    <p className="text-gray-600">{volunteer.mobile}</p>
+                  <div className="flex items-start gap-4">
+                    {volunteer.profilePicUrl && (
+                      <img
+                        src={volunteer.profilePicUrl || "/placeholder.svg"}
+                        alt={volunteer.name}
+                        className="w-20 h-20 object-cover rounded-lg"
+                      />
+                    )}
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800">{volunteer.name}</h3>
+                      <p className="text-gray-600">{volunteer.mobile}</p>
+                    </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(volunteer.status)}`}>
                     {volunteer.status}
@@ -227,15 +355,40 @@ export default function AdminVolunteers() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {volunteer.status === "pending" && (
+                    <>
+                      <button
+                        onClick={() => handleApprove(volunteer._id)}
+                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleReject(volunteer._id)}
+                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
                   <button
-                    onClick={() => {
-                      setEditingVolunteer(volunteer)
-                      setShowForm(true)
-                    }}
+                    onClick={() => handleViewDetails(volunteer)}
+                    className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
+                  >
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => handleEdit(volunteer)}
                     className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
                   >
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(volunteer._id)}
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>

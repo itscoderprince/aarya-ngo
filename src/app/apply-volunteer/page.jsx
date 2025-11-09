@@ -17,6 +17,7 @@ export default function ApplyVolunteer() {
     validity: "1year",
   })
   const [receipt, setReceipt] = useState(null)
+  const [profilePic, setProfilePic] = useState(null)
 
   const validityOptions = [
     { value: "1year", label: "1 Year - ₹501", price: 501 },
@@ -34,6 +35,10 @@ export default function ApplyVolunteer() {
 
   const handleFileChange = (e) => {
     setReceipt(e.target.files[0])
+  }
+
+  const handleProfilePicChange = (e) => {
+    setProfilePic(e.target.files[0])
   }
 
   const handleSubmit = async (e) => {
@@ -56,6 +61,9 @@ export default function ApplyVolunteer() {
       submitFormData.append("mobile", formData.mobile)
       submitFormData.append("validity", formData.validity)
       submitFormData.append("receipt", receipt)
+      if (profilePic) {
+        submitFormData.append("profilePic", profilePic)
+      }
 
       const response = await fetch("/api/volunteers", {
         method: "POST",
@@ -75,6 +83,7 @@ export default function ApplyVolunteer() {
         router.push("/volunteers")
       }, 2000)
     } catch (err) {
+      console.log("[v0] Error:", err)
       setError("An error occurred. Please try again.")
       setLoading(false)
     }
@@ -174,6 +183,22 @@ export default function ApplyVolunteer() {
                 rows="3"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+              <input
+                type="file"
+                onChange={handleProfilePicChange}
+                accept="image/*"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              />
+              <p className="text-xs text-gray-500 mt-1">Upload your profile picture (JPG, PNG)</p>
+              {profilePic && (
+                <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <span className="text-green-600 text-sm">✓ {profilePic.name}</span>
+                </div>
+              )}
             </div>
 
             <div>
