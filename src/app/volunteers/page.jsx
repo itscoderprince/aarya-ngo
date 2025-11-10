@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 
-export default function Volunteers() {
+export default function VolunteersPage() {
   const [volunteers, setVolunteers] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -19,7 +19,7 @@ export default function Volunteers() {
         setVolunteers(data)
       }
     } catch (err) {
-      console.error("Failed to fetch volunteers")
+      console.error("Failed to fetch volunteers:", err)
     } finally {
       setLoading(false)
     }
@@ -27,8 +27,6 @@ export default function Volunteers() {
 
   return (
     <div className="min-h-screen bg-gray-50">
- 
-
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -36,7 +34,7 @@ export default function Volunteers() {
             <p className="text-gray-600">Meet our dedicated team members</p>
           </div>
           <Link
-            href="/apply-volunteer"
+            href="/volunteers/apply"
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
           >
             Become a Volunteer
@@ -64,6 +62,15 @@ export default function Volunteers() {
                 key={volunteer._id}
                 className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition"
               >
+                {volunteer.profilePicUrl && (
+                  <div className="h-48 bg-gray-200 overflow-hidden">
+                    <img
+                      src={volunteer.profilePicUrl || "/placeholder.svg"}
+                      alt={volunteer.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 <div className="p-6">
                   <h3 className="text-2xl font-bold text-gray-800 mb-2">{volunteer.name}</h3>
 

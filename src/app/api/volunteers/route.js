@@ -71,7 +71,7 @@ export async function POST(request) {
 
     if (isAdminCreate && isAdmin) {
       status = formData.get("status") || "approved"
-      isPublished = formData.get("isPublished") === "true"
+      isPublished = status === "approved"
       notes = formData.get("notes") || ""
     } else if (!isAdminCreate) {
       const receiptFile = formData.get("receipt")

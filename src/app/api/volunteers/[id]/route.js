@@ -60,6 +60,9 @@ export async function PUT(request, { params }) {
       if (jsonData.status === "approved") {
         volunteer.approvalDate = new Date()
         volunteer.approvedBy = "admin"
+        volunteer.isPublished = true
+      } else {
+        volunteer.isPublished = false
       }
       volunteer.updatedAt = new Date()
       await volunteer.save()
@@ -77,7 +80,6 @@ export async function PUT(request, { params }) {
       const validity = formData?.get("validity")
       const status = formData?.get("status")
       const notes = formData?.get("notes")
-      const isPublished = formData?.get("isPublished")
 
       if (name) volunteer.name = name
       if (dob) volunteer.dob = new Date(dob)
@@ -90,10 +92,12 @@ export async function PUT(request, { params }) {
         if (status === "approved") {
           volunteer.approvalDate = new Date()
           volunteer.approvedBy = "admin"
+          volunteer.isPublished = true
+        } else {
+          volunteer.isPublished = false
         }
       }
       if (notes !== null && notes !== undefined) volunteer.notes = notes
-      if (isPublished !== null && isPublished !== undefined) volunteer.isPublished = isPublished === "true"
 
       const profilePicFile = formData?.get("profilePic")
       if (profilePicFile && profilePicFile instanceof File) {
