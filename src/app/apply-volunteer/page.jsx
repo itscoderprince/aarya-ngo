@@ -10,6 +10,7 @@ export default function ApplyVolunteer() {
   const [success, setSuccess] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
+    email: "",
     dob: "",
     bloodGroup: "",
     address: "",
@@ -25,8 +26,23 @@ export default function ApplyVolunteer() {
     { value: "lifetime", label: "Lifetime - ₹5,100", price: 5100 },
   ]
 
+  const getTodayDate = () => {
+    return new Date().toISOString().split("T")[0]
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target
+
+    if (name === "dob") {
+      const selectedDate = new Date(value)
+      const today = new Date()
+      if (selectedDate > today) {
+        setError("Date of birth cannot be in the future")
+        return
+      }
+      setError("")
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -55,6 +71,7 @@ export default function ApplyVolunteer() {
 
       const submitFormData = new FormData()
       submitFormData.append("name", formData.name)
+      submitFormData.append("email", formData.email)
       submitFormData.append("dob", formData.dob)
       submitFormData.append("bloodGroup", formData.bloodGroup)
       submitFormData.append("address", formData.address)
@@ -97,6 +114,7 @@ export default function ApplyVolunteer() {
           <h1 className="text-3xl font-bold text-green-600 mb-4">Application Submitted!</h1>
           <p className="text-gray-600 mb-4">
             Thank you for applying to be a volunteer. Your application has been received and is pending admin approval.
+            Check your email for confirmation.
           </p>
           <p className="text-sm text-gray-500">Redirecting you to volunteers page...</p>
         </div>
@@ -128,15 +146,29 @@ export default function ApplyVolunteer() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
                 <input
                   type="date"
                   name="dob"
                   value={formData.dob}
                   onChange={handleChange}
+                  max={getTodayDate()}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">Must be today or earlier</p>
               </div>
 
               <div>
@@ -238,7 +270,7 @@ export default function ApplyVolunteer() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-gray-700">
                 <span className="font-semibold">Note:</span> Your application will be reviewed by our admin team and
-                approved based on verification of your details and payment.
+                approved based on verification of your details and payment. You'll receive a confirmation email shortly.
               </p>
             </div>
 

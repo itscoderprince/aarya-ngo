@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/mongodb"
 import Volunteer from "@/models/Volunteer"
 import { uploadToCloudinary } from "@/lib/cloudinary"
+import { sendConfirmationEmail, sendApprovalEmail } from "@/lib/mailer"
 import { NextResponse } from "next/server"
 
 function validateAdminToken(token) {
@@ -20,11 +21,29 @@ const validityPrices = {
   lifetime: 5100,
 }
 
+function generateVolunteerId() {
+  const prefix = "VOL"
+  const timestamp = Date.now().toString().slice(-6)
+  const random = Math.floor(Math.random() * 1000)
+    .toString()
+    .padStart(3, "0")
+  return `${prefix}-${timestamp}-${random}`
+}
+
 export async function GET(request) {
   try {
     await connectDB()
     const { searchParams } = new URL(request.url)
     const all = searchParams.get("all")
+    const volunteerId = searchParams.get("volunteerId")
+
+    if (volunteerId) {
+      const volunteer = await Volunteer.findOne({ volunteerId })
+      if (!volunteer) {
+        return NextResponse.json({ error: "Volunteer not found" }, { status: 404 })
+      }
+      return NextResponse.json(volunteer)
+    }
 
     if (all) {
       const volunteers = await Volunteer.find({}).sort({ createdAt: -1 })
@@ -52,6 +71,7 @@ export async function POST(request) {
 
     const formData = await request.formData()
     const name = formData.get("name")
+    const email = formData.get("email")
     const dob = formData.get("dob")
     const bloodGroup = formData.get("bloodGroup")
     const address = formData.get("address")
@@ -59,7 +79,7 @@ export async function POST(request) {
     const validity = formData.get("validity")
     const isAdminCreate = formData.get("isAdminCreate") === "true"
 
-    if (!name || !dob || !bloodGroup || !address || !mobile || !validity) {
+    if (!name || !email || !dob || !bloodGroup || !address || !mobile || !validity) {
       return NextResponse.json({ error: "All fields required" }, { status: 400 })
     }
 
@@ -86,8 +106,11 @@ export async function POST(request) {
       profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles")
     }
 
+    const volunteerId = generateVolunteerId()
+
     const volunteer = new Volunteer({
       name,
+      email,
       dob: new Date(dob),
       bloodGroup,
       address,
@@ -97,6 +120,7 @@ export async function POST(request) {
       isPublished,
       notes,
       amount: validityPrices[validity],
+      volunteerId,
       paymentReceiptUrl: uploadResult ? uploadResult.secure_url : null,
       cloudinaryId: uploadResult ? uploadResult.public_id : null,
       profilePicUrl: profilePicResult ? profilePicResult.secure_url : null,
@@ -105,6 +129,13 @@ export async function POST(request) {
     })
 
     await volunteer.save()
+
+    if (!isAdminCreate) {
+      await sendConfirmationEmail(email, name)
+    } else if (isAdminCreate && isAdmin && status === "approved") {
+      await sendApprovalEmail(email, volunteer)
+    }
+
     return NextResponse.json(volunteer, { status: 201 })
   } catch (error) {
     console.log("[v0] POST volunteer error:", error.message)

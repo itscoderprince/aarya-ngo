@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/mongodb"
 import Volunteer from "@/models/Volunteer"
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary"
+import { sendApprovalEmail, sendUpdateEmail, sendRejectionEmail } from "@/lib/mailer"
 import { NextResponse } from "next/server"
 
 function validateAdminToken(token) {
@@ -53,22 +54,31 @@ export async function PUT(request, { params }) {
 
     // Handle JSON updates (for approve/reject)
     if (jsonData.status) {
+      const oldStatus = volunteer.status
       volunteer.status = jsonData.status
       if (jsonData.status === "approved") {
         volunteer.approvalDate = new Date()
         volunteer.approvedBy = "admin"
         volunteer.isPublished = true
-      } else {
+        volunteer.updatedAt = new Date()
+        await volunteer.save()
+        await sendApprovalEmail(volunteer.email, volunteer)
+      } else if (jsonData.status === "rejected") {
         volunteer.isPublished = false
+        volunteer.updatedAt = new Date()
+        await volunteer.save()
+        await sendRejectionEmail(volunteer.email, volunteer.name)
+      } else {
+        volunteer.updatedAt = new Date()
+        await volunteer.save()
       }
-      volunteer.updatedAt = new Date()
-      await volunteer.save()
       return NextResponse.json(volunteer)
     }
 
     // Handle FormData updates (for form edits)
     if (formData) {
       const name = formData?.get("name")
+      const email = formData?.get("email")
       const dob = formData?.get("dob")
       const bloodGroup = formData?.get("bloodGroup")
       const address = formData?.get("address")
@@ -78,6 +88,7 @@ export async function PUT(request, { params }) {
       const notes = formData?.get("notes")
 
       if (name) volunteer.name = name
+      if (email) volunteer.email = email
       if (dob) volunteer.dob = new Date(dob)
       if (bloodGroup) volunteer.bloodGroup = bloodGroup
       if (address) volunteer.address = address
@@ -108,10 +119,13 @@ export async function PUT(request, { params }) {
         volunteer.profilePicUrl = profilePicResult.secure_url
         volunteer.profilePicCloudinaryId = profilePicResult.public_id
       }
+
+      volunteer.updatedAt = new Date()
+      await volunteer.save()
+
+      await sendUpdateEmail(volunteer.email, volunteer)
     }
 
-    volunteer.updatedAt = new Date()
-    await volunteer.save()
     return NextResponse.json(volunteer)
   } catch (error) {
     console.log("[v0] PUT volunteer error:", error.message)

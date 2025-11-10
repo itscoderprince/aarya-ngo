@@ -5,6 +5,10 @@ const volunteerSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  email: {
+    type: String,
+    required: true,
+  },
   dob: {
     type: Date,
     required: true,
@@ -50,7 +54,6 @@ const volunteerSchema = new mongoose.Schema({
   profilePicCloudinaryId: {
     type: String,
   },
-  // END CHANGE
   cloudinaryId: {
     type: String,
   },
@@ -58,6 +61,9 @@ const volunteerSchema = new mongoose.Schema({
     type: Date,
   },
   approvedBy: {
+    type: String,
+  },
+  volunteerId: {
     type: String,
   },
   createdAt: {

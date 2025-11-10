@@ -29,22 +29,25 @@ export default function AdminDashboard() {
       const token = localStorage.getItem("adminToken")
       const headers = { Authorization: `Bearer ${token}` }
 
+      // Fetch all resources simultaneously
       const [photos, videos, resources, volunteers] = await Promise.all([
         fetch("/api/photo-gallery", { headers }).then((r) => r.json()),
         fetch("/api/video-gallery", { headers }).then((r) => r.json()),
         fetch("/api/resources", { headers }).then((r) => r.json()),
-        fetch("/api/volunteers", { headers }).then((r) => r.json()),
+        fetch("/api/volunteers?all=true", { headers }).then((r) => r.json()),
       ])
 
       setStats({
-        photos: photos.length,
-        videos: videos.length,
-        resources: resources.length,
-        volunteers: volunteers.length,
-        pendingVolunteers: volunteers.filter((v) => v.status === "pending").length,
+        photos: Array.isArray(photos) ? photos.length : 0,
+        videos: Array.isArray(videos) ? videos.length : 0,
+        resources: Array.isArray(resources) ? resources.length : 0,
+        volunteers: Array.isArray(volunteers) ? volunteers.length : 0,
+        pendingVolunteers: Array.isArray(volunteers)
+          ? volunteers.filter((v) => v.status === "pending").length
+          : 0,
       })
     } catch (err) {
-      console.error("Failed to fetch stats")
+      console.error("Failed to fetch stats:", err)
     } finally {
       setLoading(false)
     }
@@ -91,7 +94,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-gray-600">Loading dashboard...</p>
@@ -102,11 +105,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-8">
+      {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-800 mb-2">Welcome to Admin Panel</h1>
-        <p className="text-gray-600">Manage your website content and applications</p>
+        <p className="text-gray-600">Manage your website content and volunteer applications</p>
       </div>
 
+      {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         {dashboardCards.map((card) => (
           <Link key={card.href} href={card.href}>
@@ -124,6 +129,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -153,7 +159,7 @@ export default function AdminDashboard() {
             className="p-4 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition"
           >
             <p className="font-semibold text-orange-900">Review Volunteers</p>
-            <p className="text-sm text-orange-700">Review volunteer applications</p>
+            <p className="text-sm text-orange-700">Manage volunteer applications</p>
           </Link>
         </div>
       </div>

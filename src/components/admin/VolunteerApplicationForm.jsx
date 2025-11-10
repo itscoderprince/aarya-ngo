@@ -7,6 +7,7 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
     name: volunteer?.name || "",
+    email: volunteer?.email || "",
     dob: volunteer?.dob ? new Date(volunteer.dob).toISOString().split("T")[0] : "",
     bloodGroup: volunteer?.bloodGroup || "",
     address: volunteer?.address || "",
@@ -19,9 +20,25 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
   const [receipt, setReceipt] = useState(null)
   const [profilePic, setProfilePic] = useState(null)
   const [currentProfilePic, setCurrentProfilePic] = useState(volunteer?.profilePicUrl || null)
+  const [currentReceipt, setCurrentReceipt] = useState(volunteer?.paymentReceiptUrl || null)
+
+  const getTodayDate = () => {
+    return new Date().toISOString().split("T")[0]
+  }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
+
+    if (name === "dob") {
+      const selectedDate = new Date(value)
+      const today = new Date()
+      if (selectedDate > today) {
+        setError("Date of birth cannot be in the future")
+        return
+      }
+      setError("")
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -52,6 +69,7 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
     try {
       const submitFormData = new FormData()
       submitFormData.append("name", formData.name)
+      submitFormData.append("email", formData.email)
       submitFormData.append("dob", formData.dob)
       submitFormData.append("bloodGroup", formData.bloodGroup)
       submitFormData.append("address", formData.address)
@@ -63,12 +81,14 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
       }
 
       if (!isAdminCreate) {
-        if (!receipt) {
+        if (!receipt && !currentReceipt) {
           setError("Receipt is required")
           setLoading(false)
           return
         }
-        submitFormData.append("receipt", receipt)
+        if (receipt) {
+          submitFormData.append("receipt", receipt)
+        }
       }
 
       if (isAdminCreate) {
@@ -131,15 +151,29 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
             <input
               type="date"
               name="dob"
               value={formData.dob}
               onChange={handleChange}
+              max={getTodayDate()}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
               required
             />
+            <p className="text-xs text-gray-500 mt-1">Must be today or earlier</p>
           </div>
 
           <div>
@@ -217,12 +251,26 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
         {!isAdminCreate && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Payment Receipt (Image/PDF) *</label>
+            {currentReceipt && (
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-600 mb-2">Current Receipt:</p>
+                <a
+                  href={currentReceipt}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline break-all"
+                >
+                  {currentReceipt}
+                </a>
+                <p className="text-xs text-gray-600 mt-2">Upload a new receipt to replace it</p>
+              </div>
+            )}
             <input
               type="file"
               onChange={handleFileChange}
               accept="image/*,.pdf"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              required
+              required={!currentReceipt}
             />
             <p className="text-xs text-gray-500 mt-1">Upload proof of payment (JPG, PNG, or PDF)</p>
           </div>
