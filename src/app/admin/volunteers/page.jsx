@@ -52,10 +52,15 @@ export default function AdminVolunteers() {
       const token = localStorage.getItem("adminToken")
 
       if (editingVolunteer && editingVolunteer._id) {
+        const headers = { Authorization: `Bearer ${token}` }
+        if (!(formData instanceof FormData)) {
+          headers["Content-Type"] = "application/json"
+        }
+
         const response = await fetch(`/api/volunteers/${editingVolunteer._id}`, {
           method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
+          headers: headers,
+          body: formData instanceof FormData ? formData : JSON.stringify(formData),
         })
 
         const data = await response.json()
@@ -103,6 +108,7 @@ export default function AdminVolunteers() {
       status: "approved",
       notes: "",
       isPublished: false,
+      profilePicUrl: null,
     })
     setShowForm(true)
   }
@@ -168,11 +174,17 @@ export default function AdminVolunteers() {
 
     try {
       const token = localStorage.getItem("adminToken")
+      console.log("[v0] Deleting with token:", token ? "present" : "missing")
+
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       })
 
+      console.log("[v0] Delete response status:", response.status)
       const data = await response.json()
       console.log("[v0] Delete response:", data)
 

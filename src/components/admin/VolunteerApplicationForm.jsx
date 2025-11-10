@@ -19,7 +19,6 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
   const [receipt, setReceipt] = useState(null)
   const [profilePic, setProfilePic] = useState(null)
   const [currentProfilePic, setCurrentProfilePic] = useState(volunteer?.profilePicUrl || null)
-  // END CHANGE
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -34,9 +33,16 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
   }
 
   const handleProfilePicChange = (e) => {
-    setProfilePic(e.target.files[0])
+    const file = e.target.files[0]
+    if (file) {
+      setProfilePic(file)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setCurrentProfilePic(event.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
   }
-  // END CHANGE
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -55,7 +61,6 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
       if (profilePic) {
         submitFormData.append("profilePic", profilePic)
       }
-      // END CHANGE
 
       if (!isAdminCreate) {
         if (!receipt) {
@@ -98,7 +103,7 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
               <img
                 src={currentProfilePic || "/placeholder.svg"}
                 alt="Current profile"
-                className="w-32 h-32 object-cover rounded-lg"
+                className="w-32 h-32 object-cover rounded-lg border border-gray-300"
               />
               <p className="text-xs text-gray-500 mt-2">Current profile picture</p>
             </div>
@@ -107,11 +112,10 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
             type="file"
             onChange={handleProfilePicChange}
             accept="image/*"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
           />
           <p className="text-xs text-gray-500 mt-1">Upload your profile picture (JPG or PNG)</p>
         </div>
-        {/* END CHANGE */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
