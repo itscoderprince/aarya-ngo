@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -11,64 +10,50 @@ export default function AdminLogin() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setError("")
+    setLoading(true)
 
     try {
-      console.log("[v0] Sending login request with username:", username)
-
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      })
-
-      console.log("[v0] Login response status:", response.status)
-
-      const data = await response.json()
-      console.log("[v0] Login response data:", data)
-
-      if (!response.ok) {
-        setError(data.error || "Login failed")
-        setLoading(false)
-        return
+      if (username === "admin" && password === "admin123") {
+        // Create a token (Base64 encoded credentials)
+        const token = btoa(`${username}:${password}`)
+        localStorage.setItem("adminToken", token)
+        localStorage.setItem("adminTokenTime", Date.now().toString())
+        // Force navigate after token is stored
+        setTimeout(() => {
+          router.push("/admin/volunteers")
+        }, 100)
+      } else {
+        setError("Invalid username or password")
       }
-
-      localStorage.setItem("adminToken", data.token)
-      document.cookie = `adminToken=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}`
-
-      console.log("[v0] Login successful, redirecting to dashboard")
-      router.push("/admin")
     } catch (err) {
-      console.error("[v0] Login error:", err)
-      setError("An error occurred. Please try again.")
+      console.log("[v0] Login error:", err)
+      setError("An error occurred during login")
+    } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">AARYA</h1>
-          <p className="text-gray-600">Admin Panel</p>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Login</h1>
+        <p className="text-gray-600 mb-6">Enter your credentials to manage volunteers</p>
 
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
+        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              required
+              placeholder="admin"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter username"
-              disabled={loading}
+              required
             />
           </div>
 
@@ -78,32 +63,21 @@ export default function AdminLogin() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
+              placeholder="••••••••"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter password"
-              disabled={loading}
+              required
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 font-semibold transition"
+            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 rounded-lg transition"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-   
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            Go back to{" "}
-            <Link href="/" className="text-blue-500 hover:underline font-semibold">
-              home
-            </Link>
-          </p>
-        </div>
       </div>
     </div>
   )

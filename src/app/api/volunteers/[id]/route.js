@@ -28,8 +28,8 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const authHeader = request.headers.get("authorization")
-    const token = authHeader?.replace("Bearer ", "")
+    const authHeader = request.headers.get("authorization") || ""
+    const token = authHeader.replace("Bearer ", "").trim()
 
     if (!token || !validateAdminToken(token)) {
       console.log("[v0] Authorization failed - invalid token")
@@ -38,16 +38,14 @@ export async function PUT(request, { params }) {
 
     await connectDB()
 
-    const contentType = request.headers.get("content-type")
+    const contentType = request.headers.get("content-type") || ""
     let jsonData = {}
     let formData
 
-    if (contentType?.includes("application/json")) {
+    if (contentType.includes("application/json")) {
       jsonData = await request.json()
-      console.log("[v0] Received JSON data:", jsonData)
-    } else if (contentType?.includes("multipart/form-data")) {
+    } else if (contentType.includes("multipart/form-data")) {
       formData = await request.formData()
-      console.log("[v0] Received form data")
     }
 
     const volunteer = await Volunteer.findById(params.id)
@@ -55,7 +53,6 @@ export async function PUT(request, { params }) {
 
     // Handle JSON updates (for approve/reject)
     if (jsonData.status) {
-      console.log("[v0] Updating status to:", jsonData.status)
       volunteer.status = jsonData.status
       if (jsonData.status === "approved") {
         volunteer.approvalDate = new Date()
@@ -66,7 +63,6 @@ export async function PUT(request, { params }) {
       }
       volunteer.updatedAt = new Date()
       await volunteer.save()
-      console.log("[v0] Status updated successfully")
       return NextResponse.json(volunteer)
     }
 
@@ -101,7 +97,6 @@ export async function PUT(request, { params }) {
 
       const profilePicFile = formData?.get("profilePic")
       if (profilePicFile && profilePicFile instanceof File) {
-        // Delete old profile pic if exists
         if (volunteer.profilePicCloudinaryId) {
           try {
             await deleteFromCloudinary(volunteer.profilePicCloudinaryId)
@@ -109,7 +104,6 @@ export async function PUT(request, { params }) {
             console.log("[v0] Error deleting old profile pic:", err)
           }
         }
-        // Upload new profile pic
         const profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles")
         volunteer.profilePicUrl = profilePicResult.secure_url
         volunteer.profilePicCloudinaryId = profilePicResult.public_id
@@ -127,8 +121,8 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const authHeader = request.headers.get("authorization")
-    const token = authHeader?.replace("Bearer ", "")
+    const authHeader = request.headers.get("authorization") || ""
+    const token = authHeader.replace("Bearer ", "").trim()
 
     if (!token || !validateAdminToken(token)) {
       console.log("[v0] DELETE Authorization failed - invalid token")

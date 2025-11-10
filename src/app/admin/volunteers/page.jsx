@@ -16,24 +16,42 @@ export default function AdminVolunteers() {
   const [viewingVolunteer, setViewingVolunteer] = useState(null)
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken")
-    if (!token) {
-      router.push("/admin/login")
-      return
+    const checkAuth = () => {
+      const token = localStorage.getItem("adminToken")
+      if (!token) {
+        router.push("/admin/login")
+        return
+      }
+      fetchVolunteers()
     }
-    fetchVolunteers()
+    checkAuth()
   }, [router])
+
+  const getToken = () => {
+    return localStorage.getItem("adminToken") || ""
+  }
 
   const fetchVolunteers = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("adminToken")
+      const token = getToken()
+
       const response = await fetch("/api/volunteers?all=true", {
-        headers: { Authorization: `Bearer ${token}` },
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
       })
+
       if (response.ok) {
         const data = await response.json()
         setVolunteers(Array.isArray(data) ? data : [])
+        setError("")
+      } else if (response.status === 401) {
+        localStorage.removeItem("adminToken")
+        router.push("/admin/login")
       } else {
         setError("Failed to fetch volunteers")
         setVolunteers([])
@@ -49,34 +67,14 @@ export default function AdminVolunteers() {
 
   const handleSubmit = async (formData) => {
     try {
-      const token = localStorage.getItem("adminToken")
+      const token = getToken()
 
       if (editingVolunteer && editingVolunteer._id) {
-        const headers = { Authorization: `Bearer ${token}` }
-        if (!(formData instanceof FormData)) {
-          headers["Content-Type"] = "application/json"
-        }
-
         const response = await fetch(`/api/volunteers/${editingVolunteer._id}`, {
           method: "PUT",
-          headers: headers,
-          body: formData instanceof FormData ? formData : JSON.stringify(formData),
-        })
-
-        const data = await response.json()
-
-        if (response.ok) {
-          setShowForm(false)
-          setEditingVolunteer(null)
-          setError("")
-          fetchVolunteers()
-        } else {
-          setError(data.error || "Failed to save volunteer")
-        }
-      } else {
-        const response = await fetch("/api/volunteers", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           body: formData,
         })
 
@@ -87,6 +85,31 @@ export default function AdminVolunteers() {
           setEditingVolunteer(null)
           setError("")
           fetchVolunteers()
+        } else if (response.status === 401) {
+          localStorage.removeItem("adminToken")
+          router.push("/admin/login")
+        } else {
+          setError(data.error || "Failed to save volunteer")
+        }
+      } else {
+        const response = await fetch("/api/volunteers", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          setShowForm(false)
+          setEditingVolunteer(null)
+          setError("")
+          fetchVolunteers()
+        } else if (response.status === 401) {
+          localStorage.removeItem("adminToken")
+          router.push("/admin/login")
         } else {
           setError(data.error || "Failed to create volunteer")
         }
@@ -115,7 +138,7 @@ export default function AdminVolunteers() {
 
   const handleApprove = async (id) => {
     try {
-      const token = localStorage.getItem("adminToken")
+      const token = getToken()
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "PUT",
         headers: {
@@ -126,13 +149,14 @@ export default function AdminVolunteers() {
       })
 
       const data = await response.json()
-      console.log("[v0] Approve response:", data)
 
       if (response.ok) {
         setError("")
         fetchVolunteers()
+      } else if (response.status === 401) {
+        localStorage.removeItem("adminToken")
+        router.push("/admin/login")
       } else {
-        console.log("[v0] Approve error response:", data)
         setError(data.error || "Failed to approve volunteer")
       }
     } catch (err) {
@@ -143,7 +167,7 @@ export default function AdminVolunteers() {
 
   const handleReject = async (id) => {
     try {
-      const token = localStorage.getItem("adminToken")
+      const token = getToken()
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "PUT",
         headers: {
@@ -154,13 +178,14 @@ export default function AdminVolunteers() {
       })
 
       const data = await response.json()
-      console.log("[v0] Reject response:", data)
 
       if (response.ok) {
         setError("")
         fetchVolunteers()
+      } else if (response.status === 401) {
+        localStorage.removeItem("adminToken")
+        router.push("/admin/login")
       } else {
-        console.log("[v0] Reject error response:", data)
         setError(data.error || "Failed to reject volunteer")
       }
     } catch (err) {
@@ -173,9 +198,7 @@ export default function AdminVolunteers() {
     if (!window.confirm("Are you sure you want to delete this volunteer?")) return
 
     try {
-      const token = localStorage.getItem("adminToken")
-      console.log("[v0] Deleting with token:", token ? "present" : "missing")
-
+      const token = getToken()
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "DELETE",
         headers: {
@@ -184,15 +207,15 @@ export default function AdminVolunteers() {
         },
       })
 
-      console.log("[v0] Delete response status:", response.status)
       const data = await response.json()
-      console.log("[v0] Delete response:", data)
 
       if (response.ok) {
         setError("")
         fetchVolunteers()
+      } else if (response.status === 401) {
+        localStorage.removeItem("adminToken")
+        router.push("/admin/login")
       } else {
-        console.log("[v0] Delete error response:", data)
         setError(data.error || "Failed to delete volunteer")
       }
     } catch (err) {
@@ -208,6 +231,12 @@ export default function AdminVolunteers() {
 
   const handleViewDetails = (volunteer) => {
     setViewingVolunteer(volunteer)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken")
+    localStorage.removeItem("adminTokenTime")
+    router.push("/admin/login")
   }
 
   const filteredVolunteers = volunteers.filter((v) => {
@@ -239,6 +268,9 @@ export default function AdminVolunteers() {
               className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
             >
               Back
+            </button>
+            <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+              Logout
             </button>
             <button
               onClick={() => {
