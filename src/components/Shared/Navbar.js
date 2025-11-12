@@ -19,6 +19,7 @@ export default function Navbar() {
         { href: "/overview", label: "Overview" },
         { href: "/missionview", label: "Vision & Mission" },
         { href: "/our-team", label: "Our Team" },
+         { href: "/volunteers", label: "Our Volunteers" },
         { href: "/certificate", label: "Certificate" },
       ],
     },
@@ -43,6 +44,7 @@ export default function Navbar() {
       label: "Get Involved",
       subLinks: [
         { href: "/work-with-us", label: "Work With Us" },
+         { href: "/apply-volunteer", label: "Apply Volunteer" },
         { href: "/corporate-partnership", label: "Corporate Partnership" },
       ],
     },
