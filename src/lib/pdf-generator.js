@@ -1,78 +1,96 @@
-import { PDFDocument } from "pdfkit-table"
+import PDFDocument from "pdfkit"
+import fs from "fs"
+import path from "path"
+
+// Utility to safely register a local TTF font (avoids Helvetica.afm errors)
+function getFont(doc) {
+  try {
+    const fontPath = path.join(process.cwd(), "public", "fonts", "Roboto-Regular.ttf")
+    if (fs.existsSync(fontPath)) {
+      doc.registerFont("Roboto", fontPath)
+      doc.font("Roboto")
+    } else {
+      console.warn("⚠️ Font file not found at:", fontPath, "Using Times-Roman fallback.")
+      doc.font("Times-Roman")
+    }
+  } catch (err) {
+    console.error("Font registration failed:", err)
+    doc.font("Times-Roman")
+  }
+}
 
 export async function generateIDCardPDF(volunteer) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({
-        size: "A4",
-        bufferPages: true,
-      })
+      const doc = new PDFDocument({ size: [400, 250], margin: 20 })
+      getFont(doc)
 
       const chunks = []
       doc.on("data", (chunk) => chunks.push(chunk))
       doc.on("end", () => resolve(Buffer.concat(chunks)))
 
-      // Purple gradient background
-      doc.rect(50, 100, 500, 300)
-      doc.fillColor("#667eea")
-      doc.fill()
-
-      // White border
-      doc.lineWidth(2)
-      doc.strokeColor("white")
-      doc.rect(55, 105, 490, 290)
-      doc.stroke()
+      // Background
+      doc.fillColor("#667eea").rect(0, 0, 400, 250).fill()
 
       // Title
-      doc.fillColor("white")
-      doc.fontSize(24).font("Helvetica-Bold")
-      doc.text("VOLUNTEER ID CARD", 60, 120, { width: 480, align: "center" })
+      doc.fillColor("white").fontSize(16).text("VOLUNTEER ID CARD", 20, 15, {
+        width: 360,
+        align: "center",
+      })
+      doc.fontSize(10).text("Prayas by Aarya Foundation", 20, 35, { width: 360, align: "center" })
 
-      // Subtitle
-      doc.fontSize(12)
-      doc.text("Prayas by Aarya Foundation", 60, 150, { width: 480, align: "center" })
-
-      // Profile picture placeholder or actual image
+      // Profile Image
       if (volunteer.profilePicUrl) {
         try {
-          doc.image(volunteer.profilePicUrl, 220, 170, { width: 100, height: 100 })
-        } catch (e) {
-          doc.rect(220, 170, 100, 100).stroke()
-          doc.fontSize(10).text("Photo", 220, 210, { width: 100, align: "center" })
+          doc.image(volunteer.profilePicUrl, 150, 55, { width: 100, height: 80 })
+        } catch {
+          doc.rect(150, 55, 100, 80).strokeColor("white").stroke()
         }
-      } else {
-        doc.rect(220, 170, 100, 100).stroke()
-        doc.fontSize(10).text("No Photo", 220, 210, { width: 100, align: "center" })
       }
 
-      // Info section
-      doc.fillColor("white")
-      doc.fontSize(9).font("Helvetica-Bold")
-      doc.text("VOLUNTEER ID", 70, 290)
-      doc.fontSize(16).font("Helvetica-Bold")
-      doc.text(volunteer.volunteerId, 70, 308)
+      // ID and Name
+      doc.fontSize(8).fillColor("rgba(255,255,255,0.8)").text("VOLUNTEER ID", 20, 145)
+      doc.fontSize(14).fillColor("white").text(volunteer.volunteerId || "N/A", 20, 158)
 
-      doc.fontSize(9).font("Helvetica-Bold").fillColor("white")
-      doc.text("NAME", 70, 335)
-      doc.fontSize(12).font("Helvetica-Bold")
-      doc.text(volunteer.name, 70, 350)
+      doc.fontSize(8).fillColor("rgba(255,255,255,0.8)").text("NAME", 20, 180)
+      doc.fontSize(11).fillColor("white").text(volunteer.name || "N/A", 20, 191)
 
-      doc.fontSize(9).font("Helvetica-Bold").fillColor("rgba(255,255,255,0.8)")
-      doc.text(`BLOOD GROUP: ${volunteer.bloodGroup} | PHONE: ${volunteer.mobile}`, 70, 375)
+      // Details
+      doc
+        .fontSize(8)
+        .fillColor("rgba(255,255,255,0.7)")
+        .text(`Blood: ${volunteer.bloodGroup || "N/A"} | Phone: ${volunteer.mobile || "N/A"}`, 20, 210)
 
-      doc.fontSize(9).fillColor("rgba(255,255,255,0.8)")
-      doc.text(
-        `MEMBERSHIP: ${volunteer.validity === "1year" ? "1 Year" : volunteer.validity === "3year" ? "3 Years" : "Lifetime"}`,
-        70,
-        395,
-      )
+      doc
+        .fontSize(8)
+        .text(
+          `Membership: ${
+            volunteer.validity === "1year"
+              ? "1 Yr"
+              : volunteer.validity === "3year"
+              ? "3 Yrs"
+              : "Lifetime"
+          }`,
+          20,
+          222,
+        )
 
-      doc.fontSize(9).fillColor("rgba(255,255,255,0.7)")
-      doc.text(`APPROVED: ${new Date(volunteer.approvalDate).toLocaleDateString("en-IN")}`, 70, 415)
+      doc
+        .fontSize(7)
+        .fillColor("rgba(255,255,255,0.6)")
+        .text(
+          `Approved: ${
+            volunteer.approvalDate
+              ? new Date(volunteer.approvalDate).toLocaleDateString()
+              : "N/A"
+          }`,
+          20,
+          233,
+        )
 
       doc.end()
     } catch (error) {
-      console.log("[v0] PDF generation error:", error)
+      console.log("[v0] ID Card PDF generation error:", error.message)
       reject(error)
     }
   })
@@ -81,134 +99,115 @@ export async function generateIDCardPDF(volunteer) {
 export async function generateCertificatePDF(volunteer) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({
-        size: "A4",
-        bufferPages: true,
-      })
+      const doc = new PDFDocument({ size: "A4", margin: 50 })
+      getFont(doc)
 
       const chunks = []
       doc.on("data", (chunk) => chunks.push(chunk))
       doc.on("end", () => resolve(Buffer.concat(chunks)))
 
-      // Cream background
+      // Background and border
       doc.fillColor("#fffef5").rect(0, 0, 612, 792).fill()
-
-      // Gold border
-      doc.lineWidth(3)
-      doc.strokeColor("#d4af37")
-      doc.rect(40, 40, 532, 712)
-      doc.stroke()
-
-      // Inner gold border
-      doc.lineWidth(1)
-      doc.rect(50, 50, 512, 692)
-      doc.stroke()
+      doc.lineWidth(4).strokeColor("#d4af37").rect(40, 40, 532, 712).stroke()
+      doc.lineWidth(1).rect(50, 50, 512, 692).stroke()
 
       // Header
-      doc.fillColor("#8b7355").fontSize(11).font("Helvetica").text("✦ CERTIFICATE OF RECOGNITION ✦", 60, 80, {
-        width: 492,
+      doc.fontSize(11).fillColor("#8b7355").text("✦ CERTIFICATE OF RECOGNITION ✦", 100, 80, {
+        width: 412,
         align: "center",
-        letterSpacing: 4,
       })
 
-      // Main title
-      doc.fontSize(40).font("Helvetica-Bold").fillColor("#1a1a1a").text("CERTIFICATE", 60, 130, {
-        width: 492,
+      // Title
+      doc.fontSize(48).fillColor("#1a1a1a").text("CERTIFICATE", 100, 130, {
+        width: 412,
         align: "center",
       })
 
       // Decorative line
-      doc.strokeColor("#d4af37").lineWidth(2)
-      doc.moveTo(100, 190).lineTo(512, 190).stroke()
+      doc.strokeColor("#d4af37").lineWidth(2).moveTo(120, 200).lineTo(492, 200).stroke()
 
-      // Main text
-      doc
-        .fontSize(14)
-        .fillColor("#666")
-        .font("Helvetica")
-        .text("This is to certify that", 60, 220, { width: 492, align: "center" })
+      // Main content
+      doc.fontSize(14).fillColor("#666").text("This is to certify that", 100, 230, {
+        width: 412,
+        align: "center",
+      })
 
-      // Volunteer name
-      doc
-        .fontSize(32)
-        .font("Helvetica-Bold")
-        .fillColor("#1a1a1a")
-        .text(volunteer.name, 60, 260, { width: 492, align: "center", underline: true })
+      doc.fontSize(36).fillColor("#1a1a1a").text(volunteer.name || "N/A", 100, 270, {
+        width: 412,
+        align: "center",
+      })
 
-      // Recognition text
-      doc
-        .fontSize(13)
-        .fillColor("#555")
-        .font("Helvetica")
-        .text(
-          "has been recognized as a dedicated and committed\nVOLUNTEER\nof\nPrayas by Aarya Foundation\n\nfor their valuable contribution to the service of society",
-          60,
-          310,
-          { width: 492, align: "center", lineGap: 5 },
-        )
+      doc.strokeColor("#1a1a1a").lineWidth(1).moveTo(150, 315).lineTo(462, 315).stroke()
+
+      doc.fontSize(13).fillColor("#555").text("has been recognized as a dedicated and committed", 100, 330, {
+        width: 412,
+        align: "center",
+      })
+      doc.fontSize(16).fillColor("#667eea").text("VOLUNTEER", 100, 350, { width: 412, align: "center" })
+      doc.fontSize(12).fillColor("#555").text("of", 100, 370, { width: 412, align: "center" })
+      doc.fontSize(14).fillColor("#667eea").text("Prayas by Aarya Foundation", 100, 385, {
+        width: 412,
+        align: "center",
+      })
+      doc.fontSize(12).fillColor("#666").text("for their valuable contribution to the service of society", 100, 410, {
+        width: 412,
+        align: "center",
+      })
 
       // Details box
-      doc.rect(70, 430, 472, 80).stroke()
-
-      doc.fontSize(11).font("Helvetica-Bold").fillColor("#1a1a1a").text("Volunteer ID:", 80, 445)
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#10b981").text(volunteer.volunteerId, 80, 462)
-
+      doc.strokeColor("#d4af37").lineWidth(1).rect(80, 450, 452, 80).stroke()
+      doc.fontSize(11).fillColor("#1a1a1a").text(`Volunteer ID: ${volunteer.volunteerId || "N/A"}`, 95, 462)
       doc
         .fontSize(11)
-        .font("Helvetica-Bold")
-        .fillColor("#1a1a1a")
         .text(
-          `Membership: ${volunteer.validity === "1year" ? "1 Year" : volunteer.validity === "3year" ? "3 Years" : "Lifetime"}`,
-          280,
-          445,
+          `Membership: ${
+            volunteer.validity === "1year"
+              ? "1 Year"
+              : volunteer.validity === "3year"
+              ? "3 Years"
+              : "Lifetime"
+          }`,
+          95,
+          482,
         )
-
-      doc.fontSize(11).font("Helvetica-Bold").fillColor("#1a1a1a").text("Date of Issue:", 80, 490)
-      doc
-        .fontSize(12)
-        .font("Helvetica")
-        .fillColor("#666")
-        .text(
-          new Date(volunteer.approvalDate).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }),
-          80,
-          507,
-        )
+      doc.text(
+        `Date of Issue: ${
+          volunteer.approvalDate
+            ? new Date(volunteer.approvalDate).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : "N/A"
+        }`,
+        95,
+        502,
+      )
 
       // Footer
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#1a1a1a").text("Issued by", 60, 550, {
-        width: 492,
+      doc.fontSize(12).fillColor("#1a1a1a").text("Issued by", 100, 570, {
+        width: 412,
+        align: "center",
+      })
+      doc.fontSize(14).text("PRAYAS BY AARYA FOUNDATION", 100, 590, {
+        width: 412,
+        align: "center",
+      })
+      doc.fontSize(11).fillColor("#999").text("Bringing positive change to society", 100, 610, {
+        width: 412,
         align: "center",
       })
 
-      doc.fontSize(16).font("Helvetica-Bold").text("PRAYAS BY AARYA FOUNDATION", 60, 570, {
-        width: 492,
-        align: "center",
-        letterSpacing: 1,
-      })
-
-      doc.fontSize(11).fillColor("#999").text("Bringing positive change to society", 60, 595, {
-        width: 492,
+      // Bottom line + verification
+      doc.strokeColor("#d4af37").lineWidth(2).moveTo(120, 650).lineTo(492, 650).stroke()
+      doc.fontSize(10).fillColor("#d4af37").text("◆ DIGITALLY VERIFIED & AUTHENTIC ◆", 100, 670, {
+        width: 412,
         align: "center",
       })
-
-      // Bottom decorative line
-      doc.strokeColor("#d4af37").lineWidth(2)
-      doc.moveTo(100, 630).lineTo(512, 630).stroke()
-
-      // Verification text
-      doc
-        .fontSize(10)
-        .fillColor("#d4af37")
-        .font("Helvetica-Bold")
-        .text("◆ DIGITALLY VERIFIED & AUTHENTIC ◆", 60, 650, { width: 492, align: "center" })
 
       doc.end()
     } catch (error) {
-      console.log("[v0] Certificate PDF generation error:", error)
+      console.log("[v0] Certificate PDF generation error:", error.message)
       reject(error)
     }
   })

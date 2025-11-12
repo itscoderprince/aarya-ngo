@@ -58,6 +58,25 @@ export default function VolunteersPage() {
     setSearchResult(null)
   }
 
+  const downloadPDF = async (volunteerId, type) => {
+    try {
+      const response = await fetch(`/api/volunteers/download-pdf?volunteerId=${volunteerId}&type=${type}`)
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${volunteerId}_${type}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }
+    } catch (err) {
+      console.error("Download error:", err)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-12">
@@ -107,7 +126,7 @@ export default function VolunteersPage() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Search Result</h2>
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <VolunteerCard volunteer={searchResult} />
+              <VolunteerCard volunteer={searchResult} downloadPDF={downloadPDF} />
             </div>
           </div>
         )}
@@ -131,7 +150,7 @@ export default function VolunteersPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {volunteers.map((volunteer) => (
-                <VolunteerCard key={volunteer._id} volunteer={volunteer} />
+                <VolunteerCard key={volunteer._id} volunteer={volunteer} downloadPDF={downloadPDF} />
               ))}
             </div>
           )}
@@ -141,7 +160,7 @@ export default function VolunteersPage() {
   )
 }
 
-function VolunteerCard({ volunteer }) {
+function VolunteerCard({ volunteer, downloadPDF }) {
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
       {volunteer.profilePicUrl && (
@@ -178,6 +197,37 @@ function VolunteerCard({ volunteer }) {
               <span className="font-semibold">Joined:</span> {new Date(volunteer.approvalDate).toLocaleDateString()}
             </p>
           )}
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => downloadPDF(volunteer.volunteerId, "id-card")}
+            className="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition text-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            ID Card
+          </button>
+          <button
+            onClick={() => downloadPDF(volunteer.volunteerId, "certificate")}
+            className="flex-1 bg-yellow-600 text-white py-2 rounded-lg hover:bg-yellow-700 transition text-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Certificate
+          </button>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">

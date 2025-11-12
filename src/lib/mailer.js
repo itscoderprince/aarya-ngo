@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { generateIDCardPDF, generateCertificatePDF } from "./pdf-generator"
 
 // Create transporter with Gmail configuration
 const transporter = nodemailer.createTransport({
@@ -8,6 +9,31 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD,
   },
 })
+
+async function getPDFAttachments(volunteer) {
+  try {
+    const [idCardPDF, certificatePDF] = await Promise.all([
+      generateIDCardPDF(volunteer),
+      generateCertificatePDF(volunteer),
+    ])
+
+    return [
+      {
+        filename: `${volunteer.volunteerId}_ID_Card.pdf`,
+        content: idCardPDF,
+        contentType: "application/pdf",
+      },
+      {
+        filename: `${volunteer.volunteerId}_Certificate.pdf`,
+        content: certificatePDF,
+        contentType: "application/pdf",
+      },
+    ]
+  } catch (error) {
+    console.log("[v0] Error generating PDF attachments:", error.message)
+    return []
+  }
+}
 
 // Generate HTML for ID Card
 function generateIDCardHTML(volunteer) {
@@ -140,9 +166,10 @@ export async function sendConfirmationEmail(email, name) {
   }
 }
 
-// Send approval email with ID card and certificate
 export async function sendApprovalEmail(email, volunteer) {
   try {
+    const attachments = await getPDFAttachments(volunteer)
+
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -160,7 +187,7 @@ export async function sendApprovalEmail(email, volunteer) {
             
             <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 5px;">
               <p style="margin: 0; color: #065f46; font-weight: bold; font-size: 16px;">Your Volunteer ID: <span style="color: #10b981; font-size: 18px;">${volunteer.volunteerId}</span></p>
-              <p style="margin: 5px 0; color: #059669; font-size: 13px;">Please save this ID for future reference</p>
+              <p style="margin: 5px 0; color: #059669; font-size: 13px;">Please save this ID for future reference. Your ID Card and Certificate are attached as PDF files.</p>
             </div>
 
             <h3 style="color: #1a1a1a; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Your Volunteer ID Card</h3>
@@ -182,16 +209,18 @@ export async function sendApprovalEmail(email, volunteer) {
           </div>
         </div>
       `,
+      attachments,
     })
-    console.log("[v0] Approval email sent to", email)
+    console.log("[v0] Approval email with PDFs sent to", email)
   } catch (error) {
     console.log("[v0] Error sending approval email:", error.message)
   }
 }
 
-// Send update email with new ID card and certificate
 export async function sendUpdateEmail(email, volunteer) {
   try {
+    const attachments = await getPDFAttachments(volunteer)
+
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -227,8 +256,9 @@ export async function sendUpdateEmail(email, volunteer) {
           </div>
         </div>
       `,
+      attachments,
     })
-    console.log("[v0] Update email sent to", email)
+    console.log("[v0] Update email with PDFs sent to", email)
   } catch (error) {
     console.log("[v0] Error sending update email:", error.message)
   }
