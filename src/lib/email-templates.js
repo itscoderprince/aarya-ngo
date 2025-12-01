@@ -70,6 +70,8 @@ export const generateDonorEmailTemplate = (donorDetails, transactionDetails) => 
             Visit Website
           </a>
         </div>
+
+        <!-- PDF_LINK_PLACEHOLDER -->
       </div>
 
       <!-- Payment Footer -->
@@ -109,6 +111,8 @@ export const generateAdminEmailTemplate = (donorDetails, transactionDetails) => 
         <tr><td style="font-weight:bold;padding:4px 0;">Time:</td><td>${new Date().toLocaleString("en-IN")}</td></tr>
       </table>
 
+      <!-- PDF_LINK_PLACEHOLDER -->
+
       <div style="margin-top:20px;font-size:13px;color:#8b5e00;background:#fff8db;border-left:4px solid #fbbf24;padding:10px;">
         <b>To-Do:</b>
         <ul style="margin:5px 0 0 15px;padding:0;">
@@ -123,12 +127,68 @@ export const generateAdminEmailTemplate = (donorDetails, transactionDetails) => 
   `
 }
 
+// ---------------- Volunteer Template ------------------
+
+export const generateVolunteerEmailTemplate = (volunteer) => {
+  const { name, volunteerId, volunteerType } = volunteer || {};
+
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to the Team</title>
+  </head>
+  <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;">
+    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:6px;overflow:hidden;">
+      
+      <!-- Header -->
+      <div style="background:#022741;padding:25px;text-align:center;">
+        <h2 style="margin:0;color:#FFB70B;font-size:22px;font-weight:bold;">Welcome to Prayas!</h2>
+        <p style="margin-top:5px;color:#fff;font-size:14px;">Together we can make a difference</p>
+      </div>
+
+      <!-- Content -->
+      <div style="padding:30px;">
+        <p style="font-size:16px;color:#333;">Hello <strong>${name}</strong>,</p>
+        <p style="font-size:15px;color:#555;line-height:1.6;">
+          Congratulations! Your volunteer application has been approved. We are thrilled to have you join our mission at <strong>Prayas by Aarya Foundation</strong>.
+        </p>
+
+        <div style="background:#f0f9ff;border-left:4px solid #022741;padding:15px;margin:20px 0;">
+          <p style="margin:5px 0;font-size:14px;"><strong>Volunteer ID:</strong> ${volunteerId}</p>
+          <p style="margin:5px 0;font-size:14px;"><strong>Membership Type:</strong> ${volunteerType}</p>
+        </div>
+
+        <p style="font-size:15px;color:#555;">
+          Please find your <strong>Digital ID Card</strong> and <strong>Certificate of Membership</strong> attached to this email.
+        </p>
+
+        <div style="text-align:center;margin-top:30px;">
+          <a href="${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/volunteer" 
+             style="background:#FFB70B;color:#022741;padding:12px 25px;text-decoration:none;font-weight:bold;border-radius:5px;">
+             Access Volunteer Dashboard
+          </a>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="background:#eee;padding:15px;text-align:center;font-size:12px;color:#666;">
+        <p>&copy; ${new Date().getFullYear()} Prayas by Aarya Foundation. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+  `;
+}
+
 // ---------------- Nodemailer Config -------------------
 
 export const emailConfig = {
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER,         // ✅ secure
-    pass: process.env.EMAIL_PASSWORD,     // ✅ secure app password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
   },
 }

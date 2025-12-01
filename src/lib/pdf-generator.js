@@ -352,14 +352,13 @@ export async function generateCertificatePDF(volunteer) {
 
       doc.fontSize(9).text(`Membership: ${membershipText}`, 85, 415)
       doc.fontSize(9).text(
-        `Date of Issue: ${
-          volunteer.approvalDate
-            ? new Date(volunteer.approvalDate).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            : ""
+        `Date of Issue: ${volunteer.approvalDate
+          ? new Date(volunteer.approvalDate).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+          : ""
         }`,
         85,
         433,
@@ -407,6 +406,78 @@ export async function generateCertificatePDF(volunteer) {
       reject(err)
     }
   })
+}
+
+/**
+ * generateReceiptPDF
+ * @param {Object} donation - { merchantOrderId, donorName, donorEmail, donorPhone, amount, createdAt }
+ * @returns {Promise<Buffer>}
+ */
+export async function generateReceiptPDF(donation = {}) {
+  return new Promise((resolve, reject) => {
+    try {
+      const {
+        merchantOrderId,
+        donorName = "Donor",
+        donorEmail = "",
+        donorPhone = "",
+        amount = 0,
+        createdAt = new Date(),
+      } = donation;
+
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
+      const chunks = [];
+      doc.on("data", (c) => chunks.push(c));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+
+      // Header
+      doc.fontSize(20).text("Prayas by Aarya Foundation", { align: "center" });
+      doc.moveDown(0.3);
+      doc.fontSize(12).text("Donation Receipt", { align: "center", underline: true });
+      doc.moveDown(1);
+
+      // Info
+      doc.fontSize(10).fillColor("#333");
+      doc.text(`Receipt No: ${merchantOrderId}`, { continued: true }).moveDown(0.3);
+      doc.text(`Date: ${new Date(createdAt).toLocaleString("en-IN")}`);
+      doc.moveDown(0.8);
+
+      // Donor details
+      doc.fontSize(11).text("Donor Details", { underline: true });
+      doc.moveDown(0.3);
+      doc.fontSize(10);
+      doc.text(`Name: ${donorName}`);
+      doc.text(`Email: ${donorEmail || "-"}`);
+      doc.text(`Phone: ${donorPhone || "-"}`);
+      doc.moveDown(0.8);
+
+      // Payment summary
+      doc.fontSize(11).text("Payment Summary", { underline: true });
+      doc.moveDown(0.3);
+      doc.fontSize(12).text(`Amount Paid: ₹${Number(amount).toLocaleString("en-IN")}`, { bold: true });
+      doc.moveDown(0.8);
+
+      // Body message
+      doc.fontSize(10).text(
+        "Thank you for your generous donation. Your support helps Prayas by Aarya Foundation continue its work to empower communities and bring positive change.",
+        { align: "left", lineGap: 4 }
+      );
+
+      doc.moveDown(2);
+
+      // Footer / Tax note
+      doc.rect(doc.x, doc.y, 480, 60).stroke();
+      doc.moveDown(0.3);
+      doc.fontSize(9).text("This receipt is computer generated and valid for accounting purposes.", { lineGap: 3 });
+      doc.moveDown(0.3);
+      doc.fontSize(9).text("If eligible, this donation may be claimed under Section 80G of the Income Tax Act.", { lineGap: 3 });
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 export { PDFDocument, fs, path }

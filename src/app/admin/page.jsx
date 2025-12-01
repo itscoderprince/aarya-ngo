@@ -114,7 +114,7 @@ export default function AdminDashboard() {
       {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         {dashboardCards.map((card) => (
-          <Link key={card.href} href={card.href}>
+          <Link key={card.title} href={card.href}>
             <div
               className={`bg-gradient-to-br ${card.color} text-white rounded-lg p-6 shadow-lg hover:shadow-xl transform hover:scale-105 transition cursor-pointer ${
                 card.highlight ? "ring-2 ring-offset-2 ring-red-300" : ""

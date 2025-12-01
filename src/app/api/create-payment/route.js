@@ -1,62 +1,154 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { randomUUID } from "crypto";
+import { connectDB } from "@/lib/mongodb";
+import { createPhonePeOrder } from "@/lib/phonepe/payment";
+import Donation from "@/models/Donation";
+import Volunteer from "@/models/Volunteer";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const donor = await request.json();
+    const contentType = req.headers.get("content-type") || "";
+    let data = {};
+    let profilePicUrl = null;
+    let paymentReceiptUrl = null;
 
-    if (!donor.name || !donor.phone || !donor.amount) {
-      return NextResponse.json({ success: false, message: "Invalid input" }, { status: 400 });
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+
+      // Extract text fields
+      for (const [key, value] of formData.entries()) {
+        if (typeof value === "string") {
+          data[key] = value;
+        }
+      }
+
+      // Handle File Uploads
+      const profilePic = formData.get("profilePic");
+      const receipt = formData.get("receipt");
+
+      if (profilePic && profilePic instanceof File) {
+        const upload = await uploadToCloudinary(profilePic, "volunteers/profiles");
+        profilePicUrl = upload.secure_url;
+      }
+
+      if (receipt && receipt instanceof File) {
+        const upload = await uploadToCloudinary(receipt, "volunteers/receipts");
+        paymentReceiptUrl = upload.secure_url;
+      }
+
+      // Normalize keys
+      if (!data.mobile && data.phone) data.mobile = data.phone;
+      if (!data.referralId && data.referral) data.referralId = data.referral;
+
+    } else {
+      data = await req.json();
     }
 
-    if (donor.amount < 10) {
-      return NextResponse.json({ success: false, message: "Minimum donation ₹10" }, { status: 400 });
-    }
+    await connectDB();
 
-    const transactionId = `PRAYAS_${Date.now()}`;
+    // 1. DETERMINE TYPE & PREFIX
+    // Default to 'donation' if type is missing
+    const isVolunteer = data.paymentType === "volunteer" || data.paymentType === "VOLUNTEER";
+    const prefix = isVolunteer ? "VOL_PAY" : "DON_PAY";
 
-    const payload = {
-      merchantId: process.env.PHONEPE_MERCHANT_ID,
-      merchantTransactionId: transactionId,
-      merchantUserId: donor.phone,
-      amount: donor.amount * 100,
-      redirectUrl: `${process.env.PHONEPE_REDIRECT_URL}?transactionId=${transactionId}`,
-      redirectMode: "REDIRECT",
-      callbackUrl: process.env.PHONEPE_CALLBACK_URL,
-      paymentInstrument: { type: "PAY_PAGE" }
-    };
+    // Generate Unique Order ID with Prefix (e.g., VOL_PAY_1234...)
+    const merchantOrderId = `${prefix}_${randomUUID()}`;
+    const amount = Math.round(parseFloat(data.amount) * 100); // Convert to Paise (Integer)
 
-    const base64Payload = Buffer.from(JSON.stringify(payload)).toString("base64");
-    const endpoint = "/pg/v1/pay";
-    const raw = base64Payload + endpoint + process.env.PHONEPE_SALT_KEY;
-    const hash = crypto.createHash("sha256").update(raw).digest("hex");
-    const checksum = `${hash}###${process.env.PHONEPE_SALT_INDEX}`;
+    // 3. PROCESS PAYMENT OR FREE ENTRY
+    if (amount > 0) {
+      // --- PAID FLOW ---
 
-    const response = await fetch(`${process.env.PHONEPE_BASE_URL}${endpoint}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": checksum,
-        "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID
-      },
-      body: JSON.stringify({ request: base64Payload })
-    });
+      // SET REDIRECT URL
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+      const successPage = isVolunteer ? "/volunteer-conformation" : "/donate-success";
+      const redirectUrl = `${baseUrl}${successPage}?merchantOrderId=${merchantOrderId}`;
 
-    const result = await response.json();
-    console.log("📡 PHONEPE API RESPONSE =>", result);
+      // INITIATE PHONEPE ORDER
+      const payment = await createPhonePeOrder({
+        orderId: merchantOrderId,
+        amount,
+        redirectUrl,
+        meta: { ...data, merchantOrderId },
+      });
 
-    if (result?.success && result?.data?.instrumentResponse?.redirectInfo?.url) {
+      console.log(`[${isVolunteer ? "VOLUNTEER" : "DONATION"}] Payment initiated:`, merchantOrderId);
+
+      // SAVE TO DB (PENDING STATUS)
+      // SAVE TO DB (PENDING STATUS)
+      if (isVolunteer) {
+        await Volunteer.create({
+          merchantOrderId,
+          name: data.name,
+          email: data.email,
+          mobile: data.mobile,
+          dob: new Date(data.dob),
+          bloodGroup: data.bloodGroup,
+          address: data.address,
+          volunteerType: data.validity,
+          referralCode: data.referralId || null,
+          amount: data.amount,
+          status: "PENDING",
+          paymentDetails: payment,
+          profilePicUrl,
+          paymentReceiptUrl,
+          paymentReference: data.paymentReference || null,
+        });
+      } else {
+        await Donation.create({
+          merchantOrderId,
+          donorName: data.name,
+          donorEmail: data.email,
+          donorPhone: data.phone || data.mobile,
+          pan: data.pan,
+          amount: data.amount,
+          status: "PENDING",
+          receiptNumber: null,
+        });
+      }
+
+      return NextResponse.json(payment);
+
+    } else {
+      // --- FREE FLOW (Admin / Free Plan) ---
+      console.log(`[VOLUNTEER] Free entry created:`, merchantOrderId);
+
+      if (isVolunteer) {
+        await Volunteer.create({
+          merchantOrderId,
+          name: data.name,
+          email: data.email,
+          mobile: data.mobile,
+          dob: new Date(data.dob),
+          bloodGroup: data.bloodGroup,
+          address: data.address,
+          volunteerType: "free", // Force type to free if amount is 0
+          referralCode: data.referralId || null,
+          amount: 0,
+          status: "PENDING", // Still pending admin approval if needed, or could be 'approved'
+          paymentDetails: { status: "FREE_ENTRY" },
+          profilePicUrl,
+          paymentReceiptUrl: null,
+          paymentReference: data.paymentReference || null,
+        });
+      } else {
+        // Donations shouldn't be 0, but handle safely
+        return NextResponse.json({ success: false, message: "Donation amount must be greater than 0" }, { status: 400 });
+      }
+
       return NextResponse.json({
         success: true,
-        transactionId,
-        paymentUrl: result.data.instrumentResponse.redirectInfo.url
+        message: "Application submitted successfully",
+        isFree: true
       });
     }
 
-    return NextResponse.json({ success: false, message: result?.message || "Payment init failed", error: result }, { status: 400 });
-
   } catch (error) {
-    console.error("❌ PHONEPE INIT ERROR =>", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    console.error("Payment API Error:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

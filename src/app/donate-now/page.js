@@ -1,9 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import FavoriteIcon from "@mui/icons-material/Favorite";
-import PersonIcon from "@mui/icons-material/Person";
-import CreditCardIcon from "@mui/icons-material/CreditCard";
+import {
+  Heart,
+  User,
+  Mail,
+  Phone,
+  CreditCard,
+  ShieldCheck,
+  IndianRupee,
+  Loader2,
+  FileText
+} from "lucide-react";
 
 export default function DonateNowPage() {
   const [formData, setFormData] = useState({
@@ -21,12 +29,14 @@ export default function DonateNowPage() {
 
   const predefinedAmounts = [500, 1000, 2100, 5000, 11000];
 
+  // -------------------------
+  // HANDLE INPUTS
+  // -------------------------
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "pan" ? value.toUpperCase() : value, // PAN uppercase
+      [name]: name === "pan" ? value.toUpperCase() : value,
     }));
   };
 
@@ -35,13 +45,13 @@ export default function DonateNowPage() {
     setIsCustom(false);
     setFormData((prev) => ({
       ...prev,
-      amount: amount,
+      amount,
       customAmount: "",
     }));
   };
 
   const handleCustomAmount = (value) => {
-    if (Number(value) < 1) value = ""; // Prevent 0 or negative amount
+    if (Number(value) < 0) return;
     setIsCustom(true);
     setSelectedAmount(null);
     setFormData((prev) => ({
@@ -51,150 +61,246 @@ export default function DonateNowPage() {
     }));
   };
 
+  // -------------------------
+  // SUBMIT PAYMENT
+  // -------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    console.log(formData);
+
+    const finalAmount = isCustom ? Number(formData.customAmount) : selectedAmount;
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+      alert("Please fill all required details.");
+      return;
+    }
+
+    if (!finalAmount || finalAmount < 10) {
+      alert("Minimum donation is ₹10");
+      return;
+    }
     setIsLoading(true);
-
     try {
-      const finalAmount = isCustom ? formData.customAmount : selectedAmount;
-
-      if (!finalAmount || finalAmount < 1) {
-        alert("Please enter a valid donation amount");
-        setIsLoading(false);
-        return;
-      }
-
-      const response = await fetch("/api/create-payment", {
+      const res = await fetch("/api/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, amount: finalAmount }),
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          pan: formData.pan,
+          amount: finalAmount,
+          paymentType: "donation",
+        }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (data.success && data.paymentUrl) {
-        window.location.href = data.paymentUrl; // ✅ Redirect to PhonePe
+      console.log(data);
+
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
       } else {
-        alert(data.message || "Payment failed. Please try again.");
+        alert(data.message || "Unable to initiate payment.");
       }
-    } catch (error) {
-      console.error("Payment error:", error);
-      alert("Something went wrong. Please try again.");
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.error("Payment error:", err);
+      alert("Something went wrong. Try again.");
     }
+
+    setIsLoading(false);
   };
 
+  // Colors
+  const navyColor = '#022741';
+  const yellowColor = '#FFB70B';
+
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 py-5 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
 
-      <div className="min-h-screen bg-white">
-        <main className="max-w-4xl mx-auto px-6 py-12">
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center mb-4">
-              <FavoriteIcon className="text-yellow-400 text-4xl mr-3" />
-              <h1 className="text-4xl font-bold text-black">Make a Donation</h1>
-            </div>
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Your generous contribution helps us create a brighter tomorrow for those in need. Every donation makes a meaningful difference.
-            </p>
-          </div>
+        {/* 1. COMPACT HEADER */}
+        <div className="mb-6 border-b border-gray-200 pb-3">
+          <h1 className="text-3xl font-bold flex items-center gap-3" style={{ color: navyColor }}>
+            <Heart className="w-8 h-8 text-red-500 fill-current" />
+            Make a Donation
+          </h1>
+          <p className="text-gray-500 mt-2 text-sm sm:text-base max-w-2xl">
+            Your generous contribution supports our mission and brings hope to those in need.
+          </p>
+        </div>
 
-          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg p-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Personal Details */}
-              <div>
-                <h2 className="text-2xl font-bold text-black mb-6 flex items-center">
-                  <PersonIcon className="mr-2 text-yellow-400" />
-                  Personal Information
-                </h2>
+        {/* 2. MAIN FORM CARD */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <InputField label="Full Name *" type="text" name="name" value={formData.name} onChange={handleInputChange} required placeholder="Enter your full name" />
-                  <InputField label="Email Address *" type="email" name="email" value={formData.email} onChange={handleInputChange} required placeholder="Enter your email" />
-                  <InputField label="Phone Number *" type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required placeholder="Enter your phone no" />
-                  <InputField label="PAN Number (Optional)" type="text" name="pan" value={formData.pan} maxLength="10" onChange={handleInputChange} placeholder="Enter PAN for tax benefits" />
+          {/* FIX: Solid Top Border Div (No clipping issues) */}
+          <div className="w-full h-2" style={{ backgroundColor: yellowColor }}></div>
+
+          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+
+            {/* SECTION 1: PERSONAL DETAILS */}
+            <div>
+              {/* <h2 className="text-xl font-bold mb-5 flex items-center gap-2" style={{ color: navyColor }}>
+                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-800">
+                  <User className="w-5 h-5" />
+                </div>
+                Your Details
+              </h2> */}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Full Name *</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <input
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="John Doe"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number *</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Phone className="w-5 h-5" />
+                    </div>
+                    <input
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="+91 98765 43210"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Email Address *</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <input
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="you@example.com"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base"
+                    />
+                  </div>
+                </div>
+
+                {/* PAN Card */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">PAN (Optional)</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <input
+                      name="pan"
+                      value={formData.pan}
+                      onChange={handleInputChange}
+                      maxLength={10}
+                      placeholder="ABCDE1234F"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base uppercase placeholder:normal-case"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1 ml-1">For 80G Tax Exemption.</p>
                 </div>
               </div>
+            </div>
 
-              {/* Amount Selection */}
-              <div>
-                <h2 className="text-2xl font-bold text-black mb-6 flex items-center">
-                  <CreditCardIcon className="mr-2 text-yellow-400" />
-                  Choose Donation Amount
-                </h2>
-
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                  {predefinedAmounts.map((amount) => (
-                    <button
-                      key={amount}
-                      type="button"
-                      onClick={() => handleAmountSelect(amount)}
-                      className={`py-4 px-6 rounded-lg border-2 font-semibold transition-all ${
-                        selectedAmount === amount && !isCustom
-                          ? "bg-yellow-400 border-yellow-400 text-black"
-                          : "bg-white border-gray-300 text-gray-700 hover:border-yellow-400"
-                      }`}
-                    >
-                      ₹{amount.toLocaleString()}
-                    </button>
-                  ))}
+            {/* SECTION 2: AMOUNT SELECTION */}
+            <div>
+              {/* <h2 className="text-xl font-bold mb-5 flex items-center gap-2" style={{ color: navyColor }}>
+                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-800">
+                  <CreditCard className="w-5 h-5" />
                 </div>
+                Choose Amount
+              </h2> */}
 
-                <label className="block text-sm font-medium text-gray-700 mb-2">Custom Amount</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-5">
+                {predefinedAmounts.map((amount) => (
+                  <button
+                    type="button"
+                    key={amount}
+                    onClick={() => handleAmountSelect(amount)}
+                    className={`py-3 px-2 rounded-lg font-bold text-base transition-all border-2
+                      ${selectedAmount === amount && !isCustom
+                        ? "bg-[#022741] border-[#022741] text-white shadow-md transform -translate-y-0.5"
+                        : "bg-white border-gray-200 text-gray-600 hover:border-yellow-400 hover:bg-yellow-50"
+                      }`}
+                  >
+                    ₹{amount.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Amount Input */}
+              <div className="relative">
+                <label className="text-sm font-semibold text-gray-500 mb-2 block">Or enter custom amount</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <IndianRupee className="w-5 h-5" />
+                  </div>
                   <input
                     type="number"
                     value={formData.customAmount}
                     onChange={(e) => handleCustomAmount(e.target.value)}
-                    className={`w-full pl-8 pr-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                      isCustom ? "border-yellow-400 bg-yellow-50" : "border-gray-300 focus:border-yellow-400"
-                    }`}
-                    placeholder="Enter custom amount"
+                    placeholder="Enter amount (e.g. 5000)"
                     min="1"
+                    className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none transition-colors font-bold text-xl
+                      ${isCustom ? "border-yellow-400 bg-yellow-50 text-[#022741]" : "border-gray-200 focus:border-[#022741]"}`}
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Submit */}
-              <div className="text-center">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 px-12 rounded-lg text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black mr-2"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <FavoriteIcon className="mr-2" />
-                      Donate ₹{isCustom ? formData.customAmount || 0 : selectedAmount} Now
-                    </>
-                  )}
-                </button>
+            {/* SUBMIT BUTTON AREA */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ backgroundColor: yellowColor, color: navyColor }}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Donate ₹{isCustom ? formData.customAmount || 0 : selectedAmount} Securely
+                  </>
+                )}
+              </button>
 
-                <p className="text-sm text-gray-500 mt-4">
-                  Secure payment powered by PhonePe. Your donation is safe and encrypted.
-                </p>
+              <div className="mt-5 flex items-center justify-center gap-2 text-sm text-gray-500 bg-gray-50 py-3 rounded-lg border border-gray-100">
+                <ShieldCheck className="w-5 h-5 text-green-600" />
+                <span>Secure payment powered by <strong>PhonePe</strong>. Encrypted & Safe.</span>
               </div>
-            </form>
-          </div>
-        </main>
-      </div>
-    </>
-  );
-}
+            </div>
 
-// ✅ Reusable Input component
-function InputField(props) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">{props.label}</label>
-      <input {...props} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-yellow-400 focus:outline-none transition-colors" />
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

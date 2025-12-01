@@ -1,5 +1,10 @@
 import nodemailer from "nodemailer"
 import { generateIDCardPDF, generateCertificatePDF } from "./pdf-generator"
+import {
+  generateDonorEmailTemplate,
+  generateAdminEmailTemplate,
+  emailConfig,
+} from "./email-templates";
 
 // Create transporter with Gmail configuration
 const transporter = nodemailer.createTransport({
@@ -166,6 +171,7 @@ export async function sendConfirmationEmail(email, name) {
   }
 }
 
+// Send approval email
 export async function sendApprovalEmail(email, volunteer) {
   try {
     const attachments = await getPDFAttachments(volunteer)
@@ -217,6 +223,7 @@ export async function sendApprovalEmail(email, volunteer) {
   }
 }
 
+// Send update email
 export async function sendUpdateEmail(email, volunteer) {
   try {
     const attachments = await getPDFAttachments(volunteer)
@@ -293,5 +300,88 @@ export async function sendRejectionEmail(email, name) {
     console.log("[v0] Rejection email sent to", email)
   } catch (error) {
     console.log("[v0] Error sending rejection email:", error.message)
+  }
+}
+
+/**
+ * SEND EMAIL TO DONOR WITH PDF RECEIPT
+ */
+export async function sendDonorEmail(donation, pdfBuffer) {
+  try {
+    // If no email, skip sending and log it
+    if (!donation.donorEmail) {
+      console.log(
+        "⏩ Skipping donor email: No email address provided for this donation."
+      );
+      return true;
+    }
+
+    const transporter = nodemailer.createTransport(emailConfig);
+
+    const donorDetails = {
+      name: donation.donorName,
+      phone: donation.donorPhone,
+      pan: donation.pan,
+      amount: donation.amount,
+    };
+
+    const transactionDetails = {
+      transactionId: donation.merchantOrderId,
+    };
+
+    await transporter.sendMail({
+      from: `Prayas by Aarya Foundation <${process.env.EMAIL_USER}>`,
+      to: donation.donorEmail,
+      subject: "Your Donation Receipt - Prayas by Aarya Foundation",
+      html: generateDonorEmailTemplate(donorDetails, transactionDetails),
+      attachments: [
+        {
+          filename: `Donation_Receipt_${donation.receiptNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+    console.log("📨 Donor Email Sent:", donation.donorEmail);
+    return true;
+  } catch (error) {
+    console.error("❌ Error sending donor email:", error);
+    return false;
+  }
+}
+
+/**
+ * SEND EMAIL TO ADMIN (NO PDF)
+ */
+export async function sendAdminEmail(donation) {
+  try {
+    const transporter = nodemailer.createTransport(emailConfig);
+
+    const donorDetails = {
+      name: donation.donorName,
+      email: donation.donorEmail,
+      phone: donation.donorPhone,
+      pan: donation.pan,
+      amount: donation.amount,
+    };
+
+    const transactionDetails = {
+      transactionId: donation.merchantOrderId,
+      status: donation.status,
+    };
+
+    await transporter.sendMail({
+      from: `Donation Bot <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      subject: "New Donation Received - Prayas by Aarya Foundation",
+      html: generateAdminEmailTemplate(donorDetails, transactionDetails),
+    });
+
+    console.log("📨 Admin Email Sent");
+    return true;
+  } catch (error) {
+    console.error("❌ Error sending admin email:", error);
+    return false;
   }
 }

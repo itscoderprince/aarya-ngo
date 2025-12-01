@@ -15,9 +15,9 @@ export const metadata = {
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-grow pt-[1px]"> 
+      <main className="flex-grow pt-[1px]">
         <HomeCarousel />
-        <HomeCards/>
+        <HomeCards />
         <HomePageHero />
         <HomePageAbout />
         <HomePageImpact />

@@ -1,157 +1,184 @@
-import { connectDB } from "@/lib/mongodb"
-import Volunteer from "@/models/Volunteer"
-import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary"
-import { sendApprovalEmail, sendUpdateEmail, sendRejectionEmail } from "@/lib/mailer"
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import Volunteer from "@/models/Volunteer";
+import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
+import { sendApprovalEmail, sendUpdateEmail, sendRejectionEmail } from "@/lib/mailer";
 
-function validateAdminToken(token) {
-  if (!token) return false
+// ==========================================
+// 1. SECURITY & HELPERS
+// ==========================================
+
+function isAuthenticated(request) {
+  const authHeader = request.headers.get("authorization") || "";
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  if (!token) return false;
+
   try {
-    const decoded = Buffer.from(token, "base64").toString("utf-8")
-    const [username, password] = decoded.split(":")
-    return username === "admin" && password === "admin123"
+    const decoded = Buffer.from(token, "base64").toString("utf-8");
+    const [username, password] = decoded.split(":");
+
+    // Compare against Environment Variables (NEVER hardcode in production)
+    return (
+      username === process.env.ADMIN_USERNAME &&
+      password === process.env.ADMIN_PASSWORD
+    );
   } catch (e) {
-    return false
+    return false;
   }
 }
 
+/**
+ * Standardized Error Response
+ */
+function handleError(error, context) {
+  console.error(`[API Error - ${context}]:`, error.message);
+  return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+}
+
+// ==========================================
+// 2. GET: Fetch Single Volunteer
+// ==========================================
 export async function GET(request, { params }) {
   try {
-    await connectDB()
-    const volunteer = await Volunteer.findById(params.id)
-    if (!volunteer) return NextResponse.json({ error: "Not found" }, { status: 404 })
-    return NextResponse.json(volunteer)
+    const { id } = await params;
+    await connectDB();
+    const volunteer = await Volunteer.findById(id);
+
+    if (!volunteer) {
+      return NextResponse.json({ error: "Volunteer not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(volunteer);
   } catch (error) {
-    console.log("[v0] GET volunteer error:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return handleError(error, "GET Volunteer");
   }
 }
 
+// ==========================================
+// 3. PUT: Update Volunteer (Details or Status)
+// ==========================================
 export async function PUT(request, { params }) {
-  try {
-    const authHeader = request.headers.get("authorization") || ""
-    const token = authHeader.replace("Bearer ", "").trim()
+  // A. Security Check
+  if (!isAuthenticated(request)) {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+  }
 
-    if (!token || !validateAdminToken(token)) {
-      console.log("[v0] Authorization failed - invalid token")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  try {
+    const { id } = await params;
+    await connectDB();
+    const volunteer = await Volunteer.findById(id);
+
+    if (!volunteer) {
+      return NextResponse.json({ error: "Volunteer not found" }, { status: 404 });
     }
 
-    await connectDB()
-
-    const contentType = request.headers.get("content-type") || ""
-    let jsonData = {}
-    let formData
+    // B. Parse Input (Unify JSON and FormData)
+    const contentType = request.headers.get("content-type") || "";
+    let updateData = {};
+    let profilePicFile = null;
 
     if (contentType.includes("application/json")) {
-      jsonData = await request.json()
+      updateData = await request.json();
     } else if (contentType.includes("multipart/form-data")) {
-      formData = await request.formData()
+      const formData = await request.formData();
+      // Convert FormData to standard Object
+      for (const [key, value] of formData.entries()) {
+        if (key !== "profilePic") updateData[key] = value;
+      }
+      profilePicFile = formData.get("profilePic");
     }
 
-    const volunteer = await Volunteer.findById(params.id)
-    if (!volunteer) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
-    // Handle JSON updates (for approve/reject)
-    if (jsonData.status) {
-      const oldStatus = volunteer.status
-      volunteer.status = jsonData.status
-      if (jsonData.status === "approved") {
-        volunteer.approvalDate = new Date()
-        volunteer.approvedBy = "admin"
-        volunteer.isPublished = true
-        volunteer.updatedAt = new Date()
-        await volunteer.save()
-        await sendApprovalEmail(volunteer.email, volunteer)
-      } else if (jsonData.status === "rejected") {
-        volunteer.isPublished = false
-        volunteer.updatedAt = new Date()
-        await volunteer.save()
-        await sendRejectionEmail(volunteer.email, volunteer.name)
-      } else {
-        volunteer.updatedAt = new Date()
-        await volunteer.save()
+    // C. Handle Profile Picture Upload (If exists)
+    if (profilePicFile && profilePicFile instanceof File) {
+      // 1. Delete old image if it exists
+      if (volunteer.profilePicCloudinaryId) {
+        await deleteFromCloudinary(volunteer.profilePicCloudinaryId).catch(err =>
+          console.warn("Failed to delete old image:", err.message)
+        );
       }
-      return NextResponse.json(volunteer)
+      // 2. Upload new image
+      const uploadResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles");
+      volunteer.profilePicUrl = uploadResult.secure_url;
+      volunteer.profilePicCloudinaryId = uploadResult.public_id;
     }
 
-    // Handle FormData updates (for form edits)
-    if (formData) {
-      const name = formData?.get("name")
-      const email = formData?.get("email")
-      const dob = formData?.get("dob")
-      const bloodGroup = formData?.get("bloodGroup")
-      const address = formData?.get("address")
-      const mobile = formData?.get("mobile")
-      const validity = formData?.get("validity")
-      const status = formData?.get("status")
-      const notes = formData?.get("notes")
-
-      if (name) volunteer.name = name
-      if (email) volunteer.email = email
-      if (dob) volunteer.dob = new Date(dob)
-      if (bloodGroup) volunteer.bloodGroup = bloodGroup
-      if (address) volunteer.address = address
-      if (mobile) volunteer.mobile = mobile
-      if (validity) volunteer.validity = validity
-      if (status) {
-        volunteer.status = status
-        if (status === "approved") {
-          volunteer.approvalDate = new Date()
-          volunteer.approvedBy = "admin"
-          volunteer.isPublished = true
-        } else {
-          volunteer.isPublished = false
-        }
+    // D. Update Standard Fields
+    // Only update fields if they are present in the request
+    const fields = ["name", "email", "dob", "bloodGroup", "address", "mobile", "validity", "notes"];
+    fields.forEach((field) => {
+      if (updateData[field] !== undefined && updateData[field] !== null) {
+        // Handle Date conversion specifically
+        volunteer[field] = field === "dob" ? new Date(updateData[field]) : updateData[field];
       }
-      if (notes !== null && notes !== undefined) volunteer.notes = notes
+    });
 
-      const profilePicFile = formData?.get("profilePic")
-      if (profilePicFile && profilePicFile instanceof File) {
-        if (volunteer.profilePicCloudinaryId) {
-          try {
-            await deleteFromCloudinary(volunteer.profilePicCloudinaryId)
-          } catch (err) {
-            console.log("[v0] Error deleting old profile pic:", err)
-          }
-        }
-        const profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles")
-        volunteer.profilePicUrl = profilePicResult.secure_url
-        volunteer.profilePicCloudinaryId = profilePicResult.public_id
+    // E. Handle Status Logic & Emails (State Machine)
+    // We check if status IS changing to decide on emails
+    if (updateData.status && updateData.status !== volunteer.status) {
+      const newStatus = updateData.status;
+      volunteer.status = newStatus;
+
+      if (newStatus === "approved") {
+        volunteer.approvalDate = new Date();
+        volunteer.approvedBy = "admin";
+        volunteer.isPublished = true;
+        await sendApprovalEmail(volunteer.email, volunteer);
       }
-
-      volunteer.updatedAt = new Date()
-      await volunteer.save()
-
-      await sendUpdateEmail(volunteer.email, volunteer)
+      else if (newStatus === "rejected") {
+        volunteer.isPublished = false;
+        await sendRejectionEmail(volunteer.email, volunteer.name);
+      }
+      else {
+        // Pending or other statuses
+        volunteer.isPublished = false;
+      }
+    } else {
+      // Status didn't change, but we updated details via FormData
+      // Only send update email if it was a form submission (not just a JSON status toggle)
+      if (contentType.includes("multipart/form-data")) {
+        await sendUpdateEmail(volunteer.email, volunteer);
+      }
     }
 
-    return NextResponse.json(volunteer)
+    // F. Save & Return
+    volunteer.updatedAt = new Date();
+    await volunteer.save();
+
+    return NextResponse.json(volunteer);
+
   } catch (error) {
-    console.log("[v0] PUT volunteer error:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return handleError(error, "PUT Volunteer");
   }
 }
 
+// ==========================================
+// 4. DELETE: Remove Volunteer
+// ==========================================
 export async function DELETE(request, { params }) {
-  try {
-    const authHeader = request.headers.get("authorization") || ""
-    const token = authHeader.replace("Bearer ", "").trim()
+  // Security Check
+  if (!isAuthenticated(request)) {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+  }
 
-    if (!token || !validateAdminToken(token)) {
-      console.log("[v0] DELETE Authorization failed - invalid token")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  try {
+    const { id } = await params;
+    await connectDB();
+    const volunteer = await Volunteer.findByIdAndDelete(id);
+
+    if (!volunteer) {
+      return NextResponse.json({ error: "Volunteer not found" }, { status: 404 });
     }
 
-    await connectDB()
+    // Optional: Clean up their image from Cloudinary when deleting user
+    if (volunteer.profilePicCloudinaryId) {
+      await deleteFromCloudinary(volunteer.profilePicCloudinaryId).catch(err =>
+        console.warn("Failed to delete cloud image:", err.message)
+      );
+    }
 
-    const volunteer = await Volunteer.findByIdAndDelete(params.id)
-    if (!volunteer) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
-    console.log("[v0] Volunteer deleted successfully:", params.id)
-    return NextResponse.json({ message: "Deleted successfully" })
+    return NextResponse.json({ message: "Volunteer deleted successfully" });
   } catch (error) {
-    console.log("[v0] DELETE volunteer error:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return handleError(error, "DELETE Volunteer");
   }
 }

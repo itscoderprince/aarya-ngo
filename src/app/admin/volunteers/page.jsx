@@ -245,12 +245,13 @@ export default function AdminVolunteers() {
   })
 
   const getStatusBadge = (status) => {
-    const colors = {
-      pending: "bg-yellow-100 text-yellow-800",
-      approved: "bg-green-100 text-green-800",
-      rejected: "bg-red-100 text-red-800",
-    }
-    return colors[status] || "bg-gray-100 text-gray-800"
+    const normalizedStatus = status?.toLowerCase() || "";
+
+    if (normalizedStatus === "approved") return "bg-green-100 text-green-800";
+    if (normalizedStatus === "rejected") return "bg-red-100 text-red-800";
+    if (normalizedStatus === "pending" || normalizedStatus === "payment_success") return "bg-yellow-100 text-yellow-800";
+
+    return "bg-gray-100 text-gray-800";
   }
 
   return (
@@ -307,33 +308,29 @@ export default function AdminVolunteers() {
         <div className="mb-6 flex gap-2 flex-wrap">
           <button
             onClick={() => setFilter("all")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "all" ? "bg-blue-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-            }`}
+            className={`px-4 py-2 rounded-lg ${filter === "all" ? "bg-blue-500 text-white" : "bg-white text-gray-700 border border-gray-300"
+              }`}
           >
             All ({volunteers.length})
           </button>
           <button
             onClick={() => setFilter("pending")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "pending" ? "bg-yellow-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-            }`}
+            className={`px-4 py-2 rounded-lg ${filter === "pending" ? "bg-yellow-500 text-white" : "bg-white text-gray-700 border border-gray-300"
+              }`}
           >
             Pending ({volunteers.filter((v) => v.status === "pending").length})
           </button>
           <button
             onClick={() => setFilter("approved")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "approved" ? "bg-green-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-            }`}
+            className={`px-4 py-2 rounded-lg ${filter === "approved" ? "bg-green-500 text-white" : "bg-white text-gray-700 border border-gray-300"
+              }`}
           >
             Approved ({volunteers.filter((v) => v.status === "approved").length})
           </button>
           <button
             onClick={() => setFilter("rejected")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "rejected" ? "bg-red-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-            }`}
+            className={`px-4 py-2 rounded-lg ${filter === "rejected" ? "bg-red-500 text-white" : "bg-white text-gray-700 border border-gray-300"
+              }`}
           >
             Rejected ({volunteers.filter((v) => v.status === "rejected").length})
           </button>

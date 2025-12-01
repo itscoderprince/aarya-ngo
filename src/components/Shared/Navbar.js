@@ -19,14 +19,14 @@ export default function Navbar() {
         { href: "/overview", label: "Overview" },
         { href: "/missionview", label: "Vision & Mission" },
         { href: "/our-team", label: "Our Team" },
-         { href: "/volunteers", label: "Our Volunteers" },
+        { href: "/volunteers", label: "Our Volunteers" },
         { href: "/certificate", label: "Certificate" },
       ],
     },
     {
       label: "What We Do?",
       subLinks: [
-         { href: "/agriculture", label: "Agriculture" },
+        { href: "/agriculture", label: "Agriculture" },
         { href: "/education", label: "Education" },
         { href: "/healthcare", label: "HealthCare" },
         { href: "/women-empowerment", label: "Women Empowerment" },
@@ -44,11 +44,11 @@ export default function Navbar() {
       label: "Get Involved",
       subLinks: [
         { href: "/work-with-us", label: "Work With Us" },
-         { href: "/apply-volunteer", label: "Apply Volunteer" },
+        { href: "/apply-volunteer", label: "Apply Volunteer" },
         { href: "/corporate-partnership", label: "Corporate Partnership" },
       ],
     },
-    
+
   ];
 
   return (
