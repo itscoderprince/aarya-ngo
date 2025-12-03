@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import crypto from "crypto";
 
 const volunteerSchema = new mongoose.Schema(
   {
@@ -18,9 +17,8 @@ const volunteerSchema = new mongoose.Schema(
     },
     merchantOrderId: {
       type: String,
-      required: false, // Changed to false to support legacy data
       unique: true,
-      sparse: true,    // Allows multiple documents to have no merchantOrderId
+      sparse: true,
       index: true,
     },
     mobile: {
@@ -50,7 +48,7 @@ const volunteerSchema = new mongoose.Schema(
       default: "1year",
       required: true,
     },
-    // Kept for backward compatibility, synced with volunteerType
+    // Kept for backward compatibility
     validity: {
       type: String,
       enum: ["1year", "3year", "lifetime", "free"],
@@ -58,7 +56,6 @@ const volunteerSchema = new mongoose.Schema(
     },
 
     // --- Generated Identifiers ---
-    // Format: VOL-P-2025-201 or VOL-F-2025-201
     volunteerId: {
       type: String,
       unique: true,
@@ -66,7 +63,11 @@ const volunteerSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    // Format: NAME-XXXX (e.g., PRIN-A2B4)
+    sequence: {
+      type: Number,
+      unique: true,
+      sparse: true,
+    },
     referralCode: {
       type: String,
       unique: true,
@@ -74,23 +75,20 @@ const volunteerSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Auto-calculated based on type
-    membershipExpireDate: {
-      type: Date,
-      index: true,
-      default: null,
-    },
-
     // --- Status & Meta ---
     status: {
       type: String,
-      // enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "payment_failed"],
       default: "pending",
       index: true,
     },
     isPublished: {
       type: Boolean,
       default: false,
+    },
+    notes: {
+      type: String,
+      default: "",
     },
 
     // --- Payment & Amount ---
@@ -101,129 +99,57 @@ const volunteerSchema = new mongoose.Schema(
     },
     paymentDetails: {
       type: mongoose.Schema.Types.Mixed,
-      select: false, // Optimization: Don't load heavy payment logs by default
+      default: {},
     },
-    paymentReceiptUrl: { type: String },
 
     // --- Media ---
     profilePicUrl: { type: String },
     profilePicCloudinaryId: { type: String },
-    cloudinaryId: { type: String },
+    paymentReceiptUrl: { type: String },
 
-    // --- Admin Info ---
-    notes: { type: String, trim: true },
+    // --- Admin Meta ---
     approvedBy: { type: String },
     approvalDate: { type: Date },
+    membershipExpireDate: { type: Date, index: true },
   },
-  {
-    timestamps: true, // Adds createdAt and updatedAt automatically
-  }
+  { timestamps: true }
 );
 
-// ==========================================
-// 1. HELPER: Generate Referral Code
-// ==========================================
-const generateReferralCode = (name) => {
-  // Take first 4 letters of name, remove spaces/symbols, uppercase
-  // Example: "Prince Sharma" -> "PRIN"
-  const namePrefix = name.replace(/[^a-zA-Z]/g, "").substring(0, 4).toUpperCase();
-
-  // Generate 4 random characters (Hex)
-  const randomSuffix = crypto.randomBytes(3).toString("hex").toUpperCase().substring(0, 4);
-
-  return `${namePrefix}-${randomSuffix}`;
-};
-
-// ==========================================
-// 2. HELPER: Generate Volunteer ID
-// ==========================================
-const generateCustomId = async (model, typeCode, year) => {
-  const prefix = `VOL-${typeCode}-${year}`;
-
-  // Find the most recent volunteer with this specific prefix
-  const lastRecord = await model.findOne({
-    volunteerId: { $regex: `^${prefix}` }
-  })
-    .sort({ createdAt: -1 }) // Sort by newest first
-    .select("volunteerId");
-
-  let newSequence = 201; // Start counting from 201
-
-  if (lastRecord && lastRecord.volunteerId) {
-    // ID Format: VOL-P-2025-201
-    // Split by '-' to get parts: ["VOL", "P", "2025", "201"]
-    const parts = lastRecord.volunteerId.split("-");
-    const lastNum = parseInt(parts[parts.length - 1]);
-
-    if (!isNaN(lastNum)) {
-      newSequence = lastNum + 1;
-    }
-  }
-
-  return `${prefix}-${newSequence}`;
-};
-
-// ==========================================
-// 3. PRE-SAVE HOOK (The Automation Logic)
-// ==========================================
+// --- Pre-save Hooks ---
 volunteerSchema.pre("save", async function (next) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-
-  // --- A. Calculate Expiry Date & Sync Validity ---
-  // Only run if volunteerType changed or it's a new record
-  if (this.isModified("volunteerType") || this.isNew) {
-    this.validity = this.volunteerType; // Keep fields in sync
-
-    switch (this.volunteerType) {
-      case "1year":
-        this.membershipExpireDate = new Date(now.setFullYear(now.getFullYear() + 1));
-        break;
-      case "3year":
-        this.membershipExpireDate = new Date(now.setFullYear(now.getFullYear() + 3));
-        break;
-      case "lifetime":
-        this.membershipExpireDate = null;
-        break;
-      case "free":
-        // Assuming Free is 1 year renewable, or set to null if lifetime free
-        this.membershipExpireDate = new Date(now.setFullYear(now.getFullYear() + 1));
-        break;
-      default:
-        this.membershipExpireDate = null;
-    }
-  }
-
-  // --- B. Generate Referral Code (If missing) ---
-  if (!this.referralCode) {
-    let isUnique = false;
-    while (!isUnique) {
-      const code = generateReferralCode(this.name);
-      // Check if code exists in DB to avoid collision
-      const existing = await mongoose.models.Volunteer.findOne({ referralCode: code });
-      if (!existing) {
-        this.referralCode = code;
-        isUnique = true;
-      }
-    }
-  }
-
-  // --- C. Generate Volunteer ID (If missing) ---
+  // 1. Generate Volunteer ID
   if (!this.volunteerId) {
-    // P = Paid (1yr, 3yr, Lifetime), F = Free
-    const typeCode = this.volunteerType === "free" ? "F" : "P";
+    const prefix = (this.volunteerType === "free" || this.amount === 0) ? "VOL-F" : "VOL-P";
+    const year = new Date().getFullYear();
 
-    // Use 'this.constructor' to access the Model within the document
-    this.volunteerId = await generateCustomId(
-      this.constructor,
-      typeCode,
-      currentYear
-    );
+    // Find the last sequence number
+    const lastRecord = await this.constructor.findOne({}, { sequence: 1 }).sort({ sequence: -1 });
+    const nextSeq = (lastRecord && lastRecord.sequence) ? lastRecord.sequence + 1 : 201;
+
+    this.sequence = nextSeq;
+    this.volunteerId = `${prefix}-${year}-${nextSeq}`;
+  }
+
+  // 2. Generate Referral Code
+  if (!this.referralCode && this.name) {
+    const namePart = this.name.substring(0, 4).toUpperCase().replace(/\s/g, "");
+    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+    this.referralCode = `${namePart}-${randomPart}`;
+  }
+
+  // 3. Calculate Expiry Date
+  if (!this.membershipExpireDate && this.volunteerType !== "free") {
+    const now = new Date();
+    if (this.volunteerType === "1year") {
+      this.membershipExpireDate = new Date(now.setFullYear(now.getFullYear() + 1));
+    } else if (this.volunteerType === "3year") {
+      this.membershipExpireDate = new Date(now.setFullYear(now.getFullYear() + 3));
+    } else if (this.volunteerType === "lifetime") {
+      this.membershipExpireDate = new Date(now.setFullYear(now.getFullYear() + 99));
+    }
   }
 
   next();
 });
 
-const Volunteer = mongoose.models.Volunteer || mongoose.model("Volunteer", volunteerSchema);
-
-export default Volunteer;
+export default mongoose.models.Volunteer || mongoose.model("Volunteer", volunteerSchema);

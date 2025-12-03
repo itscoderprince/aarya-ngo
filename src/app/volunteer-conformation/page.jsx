@@ -1,56 +1,3 @@
-// 'use client'
-
-// import { useSearchParams } from "next/navigation";
-// import { useEffect, useState } from "react";
-
-// export default function VolunteerSuccessPage() {
-//     const searchParams = useSearchParams();
-//     const [transactionId, setTransactionId] = useState("");
-//     const [volunteerDetails, setVolunteerDetails] = useState(null);
-//     const [paymentStatus, setPaymentStatus] = useState("");
-
-
-//     const verifyPayment = async (txnId) => {
-//         try {
-//             // setIsLoading(true);
-//             const res = await fetch("/api/verify-payment", {
-//                 method: "POST",
-//                 headers: { "Content-Type": "application/json" },
-//                 body: JSON.stringify({ transactionId: txnId }),
-//             });
-
-//             const data = await res.json();
-
-//             console.log("Payment verified:", data);
-//             console.log(transactionId);
-
-
-//             if (data.success && data.data) {
-//                 setVolunteerDetails(data.data);
-//                 setPaymentStatus(data.data.status || "");
-//             } else {
-//                 setPaymentStatus("FAILED");
-//             }
-//         } catch (err) {
-//             console.error("VERIFY ERROR:", err);
-//             setPaymentStatus("FAILED");
-//         } finally {
-//             // setIsLoading(false);
-//         }
-//     };
-
-//     useEffect(() => {
-//         const txnId = searchParams.get("merchantOrderId");
-//         if (txnId) {
-//             setTransactionId(txnId);
-//             verifyPayment(txnId);
-//         } else {
-//             // setIsLoading(false);
-//         }
-//     }, [searchParams]);
-// }
-
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -151,7 +98,7 @@ export default function VolunteerSuccessPage() {
     // 4. MAIN RENDER
     // ------------------------------
     // Includes states for approved, success, completed, or pending (admin approval)
-    const isSuccess = ["PAYMENT_SUCCESS", "COMPLETED", "approved", "PENDING"].includes(paymentStatus);
+    const isSuccess = ["PAYMENT_SUCCESS", "COMPLETED", "approved", "PENDING", "pending"].includes(paymentStatus);
 
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6">
@@ -190,7 +137,7 @@ export default function VolunteerSuccessPage() {
                             {isSuccess && (
                                 <div className="flex flex-col items-center justify-center bg-green-50 px-4 py-2 rounded-lg border border-green-100">
                                     <CheckCircle className="w-7 h-7 text-white fill-green-600 mb-1" />
-                                    <span className="text-xs font-bold text-green-700 uppercase tracking-wider">Active</span>
+                                    <span className="text-xs font-bold text-green-700 uppercase tracking-wider">Success</span>
                                 </div>
                             )}
                         </div>

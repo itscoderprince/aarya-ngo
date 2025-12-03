@@ -17,11 +17,16 @@ export default function Resources() {
     try {
       const response = await fetch("/api/resources")
       if (response.ok) {
-        const data = await response.json()
-        setResources(data)
+        const result = await response.json()
+        // FIX: Handle standardized API response { success: true, data: [...] }
+        const data = result.data || result
+        setResources(Array.isArray(data) ? data : [])
+      } else {
+        setResources([])
       }
     } catch (err) {
       console.error("Failed to fetch resources")
+      setResources([])
     } finally {
       setLoading(false)
     }
@@ -44,11 +49,10 @@ export default function Resources() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-lg capitalize font-medium transition ${
-                selectedCategory === cat
+              className={`px-4 py-2 rounded-lg capitalize font-medium transition ${selectedCategory === cat
                   ? "bg-blue-600 text-white"
                   : "bg-white text-gray-700 border border-gray-300 hover:border-blue-600"
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -77,6 +81,7 @@ export default function Resources() {
                         src={resource.thumbnail || "/placeholder.svg"}
                         alt={resource.title}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover rounded-lg"
                       />
                     </div>

@@ -1,9 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import {
+  Search, Plus, Filter, Download, MoreVertical,
+  CheckCircle, XCircle, Clock, Trash2, Eye, Edit,
+  ChevronLeft, ChevronRight, Users, Loader2, MoreHorizontal,
+  Phone, Hash, Shield
+} from "lucide-react"
+import { toast } from "react-hot-toast"
 import VolunteerApplicationForm from "@/components/admin/VolunteerApplicationForm"
 import VolunteerDetailModal from "@/components/admin/VolunteerDetailModal"
+import debounce from "lodash/debounce"
 
 export default function AdminVolunteers() {
   const router = useRouter()
@@ -11,9 +19,36 @@ export default function AdminVolunteers() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingVolunteer, setEditingVolunteer] = useState(null)
-  const [error, setError] = useState("")
-  const [filter, setFilter] = useState("all")
   const [viewingVolunteer, setViewingVolunteer] = useState(null)
+
+  // Pagination State
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1
+  })
+
+  // Action Loading States
+  const [actionLoading, setActionLoading] = useState(null)
+
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [planFilter, setPlanFilter] = useState("all")
+
+  // Dropdown State
+  const [openDropdownId, setOpenDropdownId] = useState(null)
+  const dropdownRef = useRef(null)
+
+  // Debounced Search
+  const debouncedSearch = useCallback(
+    debounce((query) => {
+      setPagination(prev => ({ ...prev, page: 1 })) // Reset to page 1 on search
+      fetchVolunteers(1, query, statusFilter, planFilter)
+    }, 500),
+    [statusFilter, planFilter]
+  )
 
   useEffect(() => {
     const checkAuth = () => {
@@ -22,21 +57,44 @@ export default function AdminVolunteers() {
         router.push("/admin/login")
         return
       }
-      fetchVolunteers()
+      fetchVolunteers(pagination.page, searchQuery, statusFilter, planFilter)
     }
     checkAuth()
-  }, [router])
+  }, [pagination.page, statusFilter, planFilter]) // Trigger on page/filter change
 
-  const getToken = () => {
-    return localStorage.getItem("adminToken") || ""
+  // Handle Search Input Change
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+    debouncedSearch(e.target.value)
   }
 
-  const fetchVolunteers = async () => {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdownId(null)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const getToken = () => localStorage.getItem("adminToken") || ""
+
+  const fetchVolunteers = async (page = 1, search = "", status = "all", validity = "all") => {
     try {
       setLoading(true)
       const token = getToken()
 
-      const response = await fetch("/api/volunteers?all=true", {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: pagination.limit.toString(),
+        search,
+        status,
+        validity
+      })
+
+      const response = await fetch(`/api/volunteers?${queryParams.toString()}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -46,19 +104,31 @@ export default function AdminVolunteers() {
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setVolunteers(Array.isArray(data) ? data : [])
-        setError("")
+        const result = await response.json()
+        const data = result.data || result
+
+        if (data.volunteers) {
+          setVolunteers(data.volunteers)
+          setPagination(prev => ({
+            ...prev,
+            total: data.pagination.total,
+            totalPages: data.pagination.totalPages,
+            page: data.pagination.page
+          }))
+        } else {
+          // Fallback if API structure is different
+          setVolunteers(Array.isArray(data) ? data : [])
+        }
       } else if (response.status === 401) {
         localStorage.removeItem("adminToken")
         router.push("/admin/login")
       } else {
-        setError("Failed to fetch volunteers")
+        toast.error("Failed to fetch volunteers")
         setVolunteers([])
       }
     } catch (err) {
       console.log("[v0] Fetch volunteers error:", err)
-      setError("Failed to fetch volunteers")
+      toast.error("Failed to fetch volunteers")
       setVolunteers([])
     } finally {
       setLoading(false)
@@ -66,77 +136,39 @@ export default function AdminVolunteers() {
   }
 
   const handleSubmit = async (formData) => {
+    const toastId = toast.loading("Saving volunteer...")
     try {
       const token = getToken()
+      const url = editingVolunteer && editingVolunteer._id
+        ? `/api/volunteers/${editingVolunteer._id}`
+        : "/api/volunteers"
 
-      if (editingVolunteer && editingVolunteer._id) {
-        const response = await fetch(`/api/volunteers/${editingVolunteer._id}`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        })
+      const method = editingVolunteer && editingVolunteer._id ? "PUT" : "POST"
 
-        const data = await response.json()
+      const response = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
 
-        if (response.ok) {
-          setShowForm(false)
-          setEditingVolunteer(null)
-          setError("")
-          fetchVolunteers()
-        } else if (response.status === 401) {
-          localStorage.removeItem("adminToken")
-          router.push("/admin/login")
-        } else {
-          setError(data.error || "Failed to save volunteer")
-        }
+      const result = await response.json()
+
+      if (response.ok) {
+        toast.success(editingVolunteer ? "Volunteer updated successfully" : "Volunteer created successfully", { id: toastId })
+        setShowForm(false)
+        setEditingVolunteer(null)
+        fetchVolunteers(pagination.page, searchQuery, statusFilter, planFilter)
       } else {
-        const response = await fetch("/api/volunteers", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        })
-
-        const data = await response.json()
-
-        if (response.ok) {
-          setShowForm(false)
-          setEditingVolunteer(null)
-          setError("")
-          fetchVolunteers()
-        } else if (response.status === 401) {
-          localStorage.removeItem("adminToken")
-          router.push("/admin/login")
-        } else {
-          setError(data.error || "Failed to create volunteer")
-        }
+        toast.error(result.message || "Operation failed", { id: toastId })
       }
     } catch (err) {
-      console.log("[v0] Submit volunteer error:", err)
-      setError("An error occurred")
+      toast.error("An error occurred", { id: toastId })
     }
   }
 
-  const handleCreateNew = () => {
-    setEditingVolunteer({
-      name: "",
-      dob: "",
-      bloodGroup: "",
-      address: "",
-      mobile: "",
-      validity: "1year",
-      status: "approved",
-      notes: "",
-      isPublished: false,
-      profilePicUrl: null,
-    })
-    setShowForm(true)
-  }
-
-  const handleApprove = async (id) => {
+  const handleStatusChange = async (id, newStatus) => {
+    setActionLoading(id)
+    const toastId = toast.loading(`Updating status to ${newStatus}...`)
     try {
       const token = getToken()
       const response = await fetch(`/api/volunteers/${id}`, {
@@ -145,316 +177,367 @@ export default function AdminVolunteers() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: "approved" }),
+        body: JSON.stringify({ status: newStatus }),
       })
 
-      const data = await response.json()
-
       if (response.ok) {
-        setError("")
-        fetchVolunteers()
-      } else if (response.status === 401) {
-        localStorage.removeItem("adminToken")
-        router.push("/admin/login")
+        toast.success("Status updated successfully", { id: toastId })
+        fetchVolunteers(pagination.page, searchQuery, statusFilter, planFilter)
+        setOpenDropdownId(null)
       } else {
-        setError(data.error || "Failed to approve volunteer")
+        toast.error("Failed to update status", { id: toastId })
       }
     } catch (err) {
-      console.log("[v0] Approve error:", err)
-      setError("An error occurred while approving: " + err.message)
-    }
-  }
-
-  const handleReject = async (id) => {
-    try {
-      const token = getToken()
-      const response = await fetch(`/api/volunteers/${id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: "rejected" }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setError("")
-        fetchVolunteers()
-      } else if (response.status === 401) {
-        localStorage.removeItem("adminToken")
-        router.push("/admin/login")
-      } else {
-        setError(data.error || "Failed to reject volunteer")
-      }
-    } catch (err) {
-      console.log("[v0] Reject error:", err)
-      setError("An error occurred while rejecting: " + err.message)
+      console.error(err)
+      toast.error("An error occurred", { id: toastId })
+    } finally {
+      setActionLoading(null)
     }
   }
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this volunteer?")) return
 
+    setActionLoading(id)
+    const toastId = toast.loading("Deleting volunteer...")
     try {
       const token = getToken()
       const response = await fetch(`/api/volunteers/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}` },
       })
 
-      const data = await response.json()
-
       if (response.ok) {
-        setError("")
-        fetchVolunteers()
-      } else if (response.status === 401) {
-        localStorage.removeItem("adminToken")
-        router.push("/admin/login")
+        toast.success("Volunteer deleted successfully", { id: toastId })
+        fetchVolunteers(pagination.page, searchQuery, statusFilter, planFilter)
+        setOpenDropdownId(null)
       } else {
-        setError(data.error || "Failed to delete volunteer")
+        toast.error("Failed to delete", { id: toastId })
       }
     } catch (err) {
-      console.log("[v0] Delete error:", err)
-      setError("An error occurred while deleting: " + err.message)
+      console.error(err)
+      toast.error("An error occurred", { id: toastId })
+    } finally {
+      setActionLoading(null)
     }
   }
 
-  const handleEdit = (volunteer) => {
-    setEditingVolunteer(volunteer)
-    setShowForm(true)
-  }
-
-  const handleViewDetails = (volunteer) => {
-    setViewingVolunteer(volunteer)
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken")
-    localStorage.removeItem("adminTokenTime")
-    router.push("/admin/login")
-  }
-
-  const filteredVolunteers = volunteers.filter((v) => {
-    if (filter === "all") return true
-    return v.status === filter
-  })
-
-  const getStatusBadge = (status) => {
-    const normalizedStatus = status?.toLowerCase() || "";
-
-    if (normalizedStatus === "approved") return "bg-green-100 text-green-800";
-    if (normalizedStatus === "rejected") return "bg-red-100 text-red-800";
-    if (normalizedStatus === "pending" || normalizedStatus === "payment_success") return "bg-yellow-100 text-yellow-800";
-
-    return "bg-gray-100 text-gray-800";
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-700 border-green-200'
+      case 'rejected': return 'bg-red-100 text-red-700 border-red-200'
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200'
+      default: return 'bg-gray-100 text-gray-700 border-gray-200'
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="space-y-4">
       {viewingVolunteer && (
         <VolunteerDetailModal volunteer={viewingVolunteer} onClose={() => setViewingVolunteer(null)} />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Volunteer Management</h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push("/admin")}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-            >
-              Back
+      {showForm ? (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+            <div>
+              <h2 className="text-xl font-bold text-[#022741]">
+                {editingVolunteer ? "Edit Volunteer" : "New Volunteer Registration"}
+              </h2>
+              <p className="text-sm text-gray-500">Fill in the details below.</p>
+            </div>
+            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 transition p-2 hover:bg-gray-50 rounded-full">
+              <XCircle className="w-6 h-6" />
             </button>
-            <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-              Logout
-            </button>
-            <button
-              onClick={() => {
-                if (showForm) {
-                  setShowForm(false)
+          </div>
+          <VolunteerApplicationForm
+            volunteer={editingVolunteer || {}}
+            onSubmit={handleSubmit}
+            onCancel={() => setShowForm(false)}
+            isAdminCreate={!editingVolunteer?._id}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Unified Toolbar - Sticky & Full Width */}
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between sticky top-0 z-30 w-full backdrop-blur-xl bg-white/95 supports-[backdrop-filter]:bg-white/80">
+
+            {/* Left: Title & Add Button */}
+            <div className="flex items-center gap-4 w-full xl:w-auto">
+              <div className="bg-blue-50 p-2.5 rounded-xl text-[#022741]">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-[#022741]">Volunteers</h1>
+                <p className="text-xs text-gray-500">{pagination.total} records found</p>
+              </div>
+              <div className="h-8 w-px bg-gray-200 mx-2 hidden sm:block"></div>
+              <button
+                onClick={() => {
                   setEditingVolunteer(null)
-                } else {
-                  handleCreateNew()
-                }
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              {showForm ? "Cancel" : "Create New"}
-            </button>
+                  setShowForm(true)
+                }}
+                className="flex items-center gap-2 bg-[#022741] text-white px-4 py-2.5 rounded-xl hover:bg-[#033a61] transition shadow-lg shadow-blue-900/10 font-medium text-sm whitespace-nowrap ml-auto sm:ml-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New</span>
+              </button>
+            </div>
+
+            {/* Right: Search & Filters */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search volunteers..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value)
+                    setPagination(prev => ({ ...prev, page: 1 }))
+                  }}
+                  className="flex-1 sm:flex-none px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-blue-500 cursor-pointer text-sm font-medium"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+
+                <select
+                  value={planFilter}
+                  onChange={(e) => {
+                    setPlanFilter(e.target.value)
+                    setPagination(prev => ({ ...prev, page: 1 }))
+                  }}
+                  className="flex-1 sm:flex-none px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-blue-500 cursor-pointer text-sm font-medium"
+                >
+                  <option value="all">All Plans</option>
+                  <option value="1year">1 Year</option>
+                  <option value="3year">3 Years</option>
+                  <option value="lifetime">Lifetime</option>
+                  <option value="free">Free</option>
+                </select>
+
+                <button className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-xl border border-gray-200 transition" title="Export CSV">
+                  <Download className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+          {/* Table */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[25%]">Volunteer Profile</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[15%]">Contact</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[15%]">Plan Details</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[10%]">ID</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[10%]">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[15%]">Date</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-[10%] text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {loading ? (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-20 text-center text-gray-500">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+                        <p className="text-sm">Loading data...</p>
+                      </td>
+                    </tr>
+                  ) : volunteers.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-20 text-center text-gray-500 text-sm">
+                        No volunteers found matching your criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    volunteers.map((volunteer) => (
+                      <tr key={volunteer._id} className="hover:bg-blue-50/30 transition-colors group">
+                        {/* Profile */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-200 shadow-sm">
+                              {volunteer.profilePicUrl ? (
+                                <img src={volunteer.profilePicUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <Users className="w-4 h-4" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 text-sm truncate">{volunteer.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{volunteer.email}</p>
+                            </div>
+                          </div>
+                        </td>
 
-        {showForm && editingVolunteer && (
-          <div className="mb-8">
-            <VolunteerApplicationForm
-              volunteer={editingVolunteer}
-              onSubmit={handleSubmit}
-              onCancel={() => {
-                setShowForm(false)
-                setEditingVolunteer(null)
-              }}
-              isAdminCreate={!editingVolunteer._id}
-            />
-          </div>
-        )}
+                        {/* Contact */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Phone className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="text-sm font-medium">{volunteer.mobile}</span>
+                          </div>
+                        </td>
 
-        <div className="mb-6 flex gap-2 flex-wrap">
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-4 py-2 rounded-lg ${filter === "all" ? "bg-blue-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-              }`}
-          >
-            All ({volunteers.length})
-          </button>
-          <button
-            onClick={() => setFilter("pending")}
-            className={`px-4 py-2 rounded-lg ${filter === "pending" ? "bg-yellow-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-              }`}
-          >
-            Pending ({volunteers.filter((v) => v.status === "pending").length})
-          </button>
-          <button
-            onClick={() => setFilter("approved")}
-            className={`px-4 py-2 rounded-lg ${filter === "approved" ? "bg-green-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-              }`}
-          >
-            Approved ({volunteers.filter((v) => v.status === "approved").length})
-          </button>
-          <button
-            onClick={() => setFilter("rejected")}
-            className={`px-4 py-2 rounded-lg ${filter === "rejected" ? "bg-red-500 text-white" : "bg-white text-gray-700 border border-gray-300"
-              }`}
-          >
-            Rejected ({volunteers.filter((v) => v.status === "rejected").length})
-          </button>
-        </div>
+                        {/* ID */}
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-mono font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200 whitespace-nowrap">
+                            {volunteer.volunteerId || "N/A"}
+                          </span>
+                        </td>
 
-        {loading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : filteredVolunteers.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">No volunteers found</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {filteredVolunteers.map((volunteer) => (
-              <div key={volunteer._id} className="bg-white rounded-lg shadow-lg p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-start gap-4">
-                    {volunteer.profilePicUrl && (
-                      <img
-                        src={volunteer.profilePicUrl || "/placeholder.svg"}
-                        alt={volunteer.name}
-                        className="w-20 h-20 object-cover rounded-lg"
-                      />
-                    )}
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800">{volunteer.name}</h3>
-                      <p className="text-gray-600">{volunteer.mobile}</p>
-                    </div>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(volunteer.status)}`}>
-                    {volunteer.status}
-                  </span>
-                </div>
+                        {/* Plan */}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-bold text-[#022741] flex items-center gap-1.5">
+                              <Shield className="w-3.5 h-3.5 text-blue-500" />
+                              {volunteer.validity === 'free' ? 'Free' : `${volunteer.validity}`}
+                            </span>
+                            {volunteer.amount > 0 && (
+                              <span className="text-xs text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded w-fit">
+                                ₹{volunteer.amount}
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Blood Group</p>
-                    <p className="font-semibold text-gray-800">{volunteer.bloodGroup}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Validity</p>
-                    <p className="font-semibold text-gray-800">
-                      {volunteer.validity === "1year"
-                        ? "1 Year"
-                        : volunteer.validity === "3year"
-                          ? "3 Years"
-                          : "Lifetime"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Amount</p>
-                    <p className="font-semibold text-gray-800">₹{volunteer.amount}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Published</p>
-                    <p className="font-semibold text-gray-800">{volunteer.isPublished ? "Yes" : "No"}</p>
-                  </div>
-                </div>
+                        {/* Status */}
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wide ${getStatusColor(volunteer.status)}`}>
+                            {volunteer.status}
+                          </span>
+                        </td>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Address</p>
-                    <p className="text-gray-800">{volunteer.address}</p>
-                  </div>
-                  {volunteer.notes && (
-                    <div>
-                      <p className="text-sm text-gray-600">Notes</p>
-                      <p className="text-gray-800">{volunteer.notes}</p>
-                    </div>
+                        {/* Date */}
+                        <td className="px-6 py-4">
+                          <p className="text-xs text-gray-700 font-medium">
+                            {new Date(volunteer.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {new Date(volunteer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </td>
+
+                        {/* Actions (Dropdown) */}
+                        <td className="px-6 py-4 text-center relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenDropdownId(openDropdownId === volunteer._id ? null : volunteer._id)
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                          >
+                            {actionLoading === volunteer._id ? (
+                              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                            ) : (
+                              <MoreHorizontal className="w-5 h-5" />
+                            )}
+                          </button>
+
+                          {/* Dropdown Menu */}
+                          {openDropdownId === volunteer._id && (
+                            <div
+                              ref={dropdownRef}
+                              className="absolute right-8 top-8 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                            >
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    setViewingVolunteer(volunteer)
+                                    setOpenDropdownId(null)
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4 text-gray-400" /> View Details
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingVolunteer(volunteer)
+                                    setShowForm(true)
+                                    setOpenDropdownId(null)
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <Edit className="w-4 h-4 text-gray-400" /> Edit
+                                </button>
+
+                                {volunteer.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleStatusChange(volunteer._id, 'approved')}
+                                      className="w-full text-left px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                    >
+                                      <CheckCircle className="w-4 h-4" /> Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusChange(volunteer._id, 'rejected')}
+                                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                      <XCircle className="w-4 h-4" /> Reject
+                                    </button>
+                                  </>
+                                )}
+
+                                <div className="h-px bg-gray-100 my-1"></div>
+                                <button
+                                  onClick={() => handleDelete(volunteer._id)}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" /> Delete
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
                   )}
-                </div>
+                </tbody>
+              </table>
+            </div>
 
-                {volunteer.paymentReceiptUrl && (
-                  <div className="mb-4">
-                    <a
-                      href={volunteer.paymentReceiptUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline text-sm"
-                    >
-                      View Payment Receipt
-                    </a>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  {volunteer.status === "pending" && (
-                    <>
-                      <button
-                        onClick={() => handleApprove(volunteer._id)}
-                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(volunteer._id)}
-                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
+            {/* Footer Pagination */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center text-gray-500 bg-gray-50/50">
+              <p className="text-sm">
+                Showing <span className="font-bold text-gray-900">{volunteers.length}</span> of <span className="font-bold text-gray-900">{pagination.total}</span> results
+              </p>
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-medium">Page {pagination.page} of {pagination.totalPages}</span>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => handleViewDetails(volunteer)}
-                    className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                    disabled={pagination.page === 1}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent transition border border-gray-200 bg-white"
                   >
-                    View Details
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => handleEdit(volunteer)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.min(pagination.totalPages, prev.page + 1) }))}
+                    disabled={pagination.page >= pagination.totalPages}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-transparent transition border border-gray-200 bg-white"
                   >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(volunteer._id)}
-                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                  >
-                    Delete
+                    <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

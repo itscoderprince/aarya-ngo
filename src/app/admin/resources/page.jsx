@@ -28,8 +28,9 @@ export default function AdminResources() {
         headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` },
       })
       if (response.ok) {
-        const data = await response.json()
-        setResources(data)
+        const result = await response.json()
+        const data = result.data || result
+        setResources(Array.isArray(data) ? data : [])
       }
     } catch (err) {
       setError("Failed to fetch resources")

@@ -1,10 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
+import {
+  User, Mail, Phone, Calendar, Droplet, MapPin, Upload, RefreshCcw, Check, Tag, Loader2
+} from "lucide-react"
+
+// --- Configuration ---
+const THEME = {
+  navy: "#022741",
+  yellow: "#FFB70B",
+  bg: "bg-gray-50",
+}
+
+// --- Reusable Input Component (Compacted) ---
+const FormInput = ({ label, icon: IconComponent, ...props }) => (
+  <div>
+    <label className="block text-xs font-bold mb-1 uppercase tracking-wide opacity-90" style={{ color: THEME.navy }}>{label}</label>
+    <div className="relative group">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#022741] transition-colors">
+        <IconComponent className="w-4 h-4" />
+      </div>
+      <input
+        className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:bg-white transition-all placeholder-gray-400"
+        style={{ '--tw-ring-color': THEME.navy }}
+        {...props}
+      />
+    </div>
+  </div>
+)
 
 export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel, isAdminCreate = false }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  // Admin Override State
+  const [isFree, setIsFree] = useState(false)
+
   const [formData, setFormData] = useState({
     name: volunteer?.name || "",
     email: volunteer?.email || "",
@@ -13,51 +44,41 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
     address: volunteer?.address || "",
     mobile: volunteer?.mobile || "",
     validity: volunteer?.validity || "1year",
-    status: volunteer?.status || (isAdminCreate ? "approved" : "pending"),
-    notes: volunteer?.notes || "",
-    isPublished: volunteer?.isPublished || false,
+    referral: volunteer?.referral || "",
+    status: volunteer?.status || "pending"
   })
-  const [receipt, setReceipt] = useState(null)
-  const [profilePic, setProfilePic] = useState(null)
-  const [currentProfilePic, setCurrentProfilePic] = useState(volunteer?.profilePicUrl || null)
-  const [currentReceipt, setCurrentReceipt] = useState(volunteer?.paymentReceiptUrl || null)
 
-  const getTodayDate = () => {
-    return new Date().toISOString().split("T")[0]
-  }
+  const [profilePic, setProfilePic] = useState(null)
+  const [profilePreview, setProfilePreview] = useState(volunteer?.profilePicUrl || null)
+
+  const validityOptions = useMemo(() => [
+    { value: "1year", label: "1 Year", price: 501 },
+    { value: "3year", label: "3 Years", price: 1100 },
+    { value: "lifetime", label: "Lifetime", price: 5100 },
+  ], [])
+
+  useEffect(() => {
+    return () => {
+      if (profilePreview && profilePreview !== volunteer?.profilePicUrl) {
+        URL.revokeObjectURL(profilePreview)
+      }
+    }
+  }, [profilePreview, volunteer])
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
-
+    const { name, value } = e.target
     if (name === "dob") {
-      const selectedDate = new Date(value)
-      const today = new Date()
-      if (selectedDate > today) {
-        setError("Date of birth cannot be in the future")
-        return
-      }
+      if (new Date(value) > new Date()) return setError("Date of birth cannot be in the future")
       setError("")
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }))
-  }
-
-  const handleFileChange = (e) => {
-    setReceipt(e.target.files[0])
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const handleProfilePicChange = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (file) {
       setProfilePic(file)
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setCurrentProfilePic(event.target.result)
-      }
-      reader.readAsDataURL(file)
+      setProfilePreview(URL.createObjectURL(file))
     }
   }
 
@@ -67,276 +88,204 @@ export default function VolunteerApplicationForm({ volunteer, onSubmit, onCancel
     setError("")
 
     try {
+      const selectedPlan = validityOptions.find(opt => opt.value === formData.validity)
+      const finalAmount = isFree ? 0 : (selectedPlan?.price || 0)
+
       const submitFormData = new FormData()
-      submitFormData.append("name", formData.name)
-      submitFormData.append("email", formData.email)
-      submitFormData.append("dob", formData.dob)
-      submitFormData.append("bloodGroup", formData.bloodGroup)
-      submitFormData.append("address", formData.address)
-      submitFormData.append("mobile", formData.mobile)
-      submitFormData.append("validity", formData.validity)
+      Object.keys(formData).forEach(key => {
+        if (key === 'referral') submitFormData.append('referralCode', formData[key])
+        else submitFormData.append(key, formData[key])
+      })
 
-      if (profilePic) {
-        submitFormData.append("profilePic", profilePic)
-      }
+      // Admin specific fields
+      submitFormData.append("amount", finalAmount)
+      submitFormData.append("isAdminCreate", "true")
+      submitFormData.append("isFree", isFree.toString())
 
-      if (!isAdminCreate) {
-        if (!receipt && !currentReceipt) {
-          setError("Receipt is required")
-          setLoading(false)
-          return
-        }
-        if (receipt) {
-          submitFormData.append("receipt", receipt)
-        }
-      }
+      // If editing, handle status if needed, though typically status is handled separately
+      if (formData.status) submitFormData.append("status", formData.status)
 
-      if (isAdminCreate) {
-        submitFormData.append("isAdminCreate", "true")
-        submitFormData.append("status", formData.status)
-        submitFormData.append("notes", formData.notes)
-        submitFormData.append("isPublished", formData.isPublished)
-      }
+      if (profilePic) submitFormData.append("profilePic", profilePic)
 
       await onSubmit(submitFormData)
-      setLoading(false)
     } catch (err) {
-      console.log("[v0] Form submit error:", err)
-      setError("An error occurred. Please try again.")
+      setError(err.message || "An error occurred. Please try again.")
+    } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        {isAdminCreate ? "Create New Volunteer" : "Volunteer Application"}
-      </h2>
+    <form onSubmit={handleSubmit} className="animate-in fade-in duration-300">
 
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
-          {currentProfilePic && (
-            <div className="mb-3">
-              <img
-                src={currentProfilePic || "/placeholder.svg"}
-                alt="Current profile"
-                className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-              />
-              <p className="text-xs text-gray-500 mt-2">Current profile picture</p>
-            </div>
-          )}
-          <input
-            type="file"
-            onChange={handleProfilePicChange}
-            accept="image/*"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">Upload your profile picture (JPG or PNG)</p>
+      {/* Header Controls (Admin Override) */}
+      {isAdminCreate && (
+        <div className="flex justify-end mb-6">
+          <label className="flex items-center space-x-2 bg-blue-50 px-3 py-1.5 rounded-lg cursor-pointer border border-blue-100 hover:bg-blue-100 transition">
+            <input
+              type="checkbox"
+              checked={isFree}
+              onChange={(e) => setIsFree(e.target.checked)}
+              className="w-4 h-4 rounded text-[#022741] focus:ring-[#022741]"
+            />
+            <span className="text-xs font-bold text-[#022741]">Admin Override (Free Membership)</span>
+          </label>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              required
-            />
-          </div>
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded mb-6 text-sm flex items-center gap-2">
+          <span className="font-bold">Error:</span> {error}
+        </div>
+      )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              required
-            />
-          </div>
+      {/* INPUTS GRID - Compact Gap */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+        <FormInput label="Full Name *" name="name" value={formData.name} onChange={handleChange} required icon={User} />
+        <FormInput label="Email Address *" type="email" name="email" value={formData.email} onChange={handleChange} required icon={Mail} />
+        <FormInput label="Mobile Number *" type="tel" name="mobile" value={formData.mobile} onChange={handleChange} required icon={Phone} />
+        <FormInput label="Date of Birth *" type="date" name="dob" max={new Date().toISOString().split("T")[0]} value={formData.dob} onChange={handleChange} required icon={Calendar} />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
-            <input
-              type="date"
-              name="dob"
-              value={formData.dob}
-              onChange={handleChange}
-              max={getTodayDate()}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">Must be today or earlier</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group *</label>
+        <div>
+          <label className="block text-xs font-bold mb-1 uppercase tracking-wide opacity-90" style={{ color: THEME.navy }}>Blood Group *</label>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#022741] transition-colors"><Droplet className="w-4 h-4" /></div>
             <select
               name="bloodGroup"
               value={formData.bloodGroup}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 appearance-none transition-all"
+              style={{ '--tw-ring-color': THEME.navy }}
               required
             >
-              <option value="">Select Blood Group</option>
-              <option value="A+">A+</option>
-              <option value="A-">A-</option>
-              <option value="B+">B+</option>
-              <option value="B-">B-</option>
-              <option value="AB+">AB+</option>
-              <option value="AB-">AB-</option>
-              <option value="O+">O+</option>
-              <option value="O-">O-</option>
+              <option value="">Select Group</option>
+              {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => <option key={bg} value={bg}>{bg}</option>)}
             </select>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
-            <input
-              type="tel"
-              name="mobile"
-              value={formData.mobile}
+        <FormInput label="Referral Code" name="referral" placeholder="Optional" value={formData.referral} onChange={handleChange} icon={Tag} />
+
+        {/* Address - Compact */}
+        <div className="mb-5 grid col-span-2">
+          <label className="block text-xs font-bold mb-1 uppercase tracking-wide opacity-90" style={{ color: THEME.navy }}>Full Address *</label>
+          <div className="relative group">
+            <div className="absolute top-2.5 left-3 flex items-start pointer-events-none text-gray-400 group-focus-within:text-[#022741] transition-colors"><MapPin className="w-4 h-4" /></div>
+            <textarea
+              name="address"
+              value={formData.address}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              rows={3}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 resize-none transition-all"
+              style={{ '--tw-ring-color': THEME.navy }}
               required
             />
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address *</label>
-          <textarea
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-            rows="3"
-            required
-          />
-        </div>
+        {/* UPLOADS SECTION - Compact Height (h-24) */}
+        <div className="mb-5">
+          <label className="block text-xs font-bold mb-1 uppercase tracking-wide opacity-90" style={{ color: THEME.navy }}>Profile Photo</label>
+          <label className={`
+            relative flex flex-row items-center w-full h-22 border-2 border-dashed rounded-xl cursor-pointer transition-all overflow-hidden group bg-white
+            ${profilePreview ? 'border-green-500' : 'border-gray-300 hover:bg-gray-50'}
+          `}>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Membership Validity *</label>
-          <div className="space-y-2">
-            {[
-              { value: "1year", label: "1 Year - ₹501" },
-              { value: "3year", label: "3 Years - ₹1,100" },
-              { value: "lifetime", label: "Lifetime - ₹5,100" },
-            ].map((option) => (
-              <label
-                key={option.value}
-                className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="validity"
-                  value={option.value}
-                  checked={formData.validity === option.value}
-                  onChange={handleChange}
-                  className="w-4 h-4"
-                />
-                <span className="ml-3 text-gray-700 font-medium">{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {!isAdminCreate && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Receipt (Image/PDF) *</label>
-            {currentReceipt && (
-              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-600 mb-2">Current Receipt:</p>
-                <a
-                  href={currentReceipt}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline break-all"
-                >
-                  {currentReceipt}
-                </a>
-                <p className="text-xs text-gray-600 mt-2">Upload a new receipt to replace it</p>
-              </div>
-            )}
-            <input
-              type="file"
-              onChange={handleFileChange}
-              accept="image/*,.pdf"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              required={!currentReceipt}
-            />
-            <p className="text-xs text-gray-500 mt-1">Upload proof of payment (JPG, PNG, or PDF)</p>
-          </div>
-        )}
-
-        {isAdminCreate && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-
-              <div className="flex items-end">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="isPublished"
-                    checked={formData.isPublished}
-                    onChange={handleChange}
-                    className="w-4 h-4"
-                  />
-                  <span className="ml-2 text-sm font-medium text-gray-700">Publish to Public List</span>
-                </label>
-              </div>
+            {/* Left Side: Preview or Icon */}
+            <div className="w-24 h-full flex-shrink-0 border-r border-gray-100 flex items-center justify-center bg-gray-50 p-2">
+              {profilePreview ? (
+                <div className="relative w-full h-full">
+                  <img src={profilePreview} alt="Preview" className="w-full h-full object-contain" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white rounded">
+                    <RefreshCcw className="w-5 h-5" />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400 group-hover:text-gray-600 transition-colors">
+                  <div style={{ color: THEME.navy }}><Upload className="w-6 h-6" /></div>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-              <textarea
-                name="notes"
-                value={formData.notes}
+            {/* Right Side: Instructions */}
+            <div className="flex-1 px-4 py-2 flex flex-col justify-center">
+              {profilePreview ? (
+                <div>
+                  <p className="font-bold text-green-600 text-sm flex items-center gap-2"><Check className="w-4 h-4" /> Photo Selected</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{profilePic?.name || "Existing Image"}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-gray-700 font-semibold">Click to upload photo</p>
+                  <p className="text-xs text-gray-400 mt-0.5">JPG/PNG. Max 2MB.</p>
+                </div>
+              )}
+            </div>
+
+            <input type="file" className="hidden" onChange={handleProfilePicChange} accept="image/*" />
+          </label>
+        </div>
+      </div>
+
+      {/* MEMBERSHIP SECTION - Compact Padding */}
+      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
+        <label className="block text-sm font-bold mb-3" style={{ color: THEME.navy }}>Select Membership Plan</label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {validityOptions.map((option) => (
+            <label
+              key={option.value}
+              className={`
+                relative flex flex-col items-center p-3 cursor-pointer rounded-lg border-2 transition-all duration-200 text-center bg-white
+                ${formData.validity === option.value ? "shadow-sm scale-[1.01]" : "hover:border-gray-300"}
+                ${isFree && formData.validity !== option.value ? "opacity-50" : "opacity-100"}
+              `}
+              style={{ borderColor: formData.validity === option.value ? THEME.navy : 'transparent' }}
+            >
+              <input
+                type="radio"
+                name="validity"
+                value={option.value}
+                checked={formData.validity === option.value}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                rows="3"
+                className="sr-only"
               />
-            </div>
-          </>
-        )}
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 font-medium"
-          >
-            {loading ? "Saving..." : "Save"}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 font-medium"
-          >
-            Cancel
-          </button>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">
+                {option.label.split(" - ")[0]}
+              </span>
+              <span className="text-xl font-black" style={{ color: THEME.navy }}>
+                {isFree ? <span className="text-green-600">FREE</span> : `₹${option.price.toLocaleString()}`}
+              </span>
+              {formData.validity === option.value && (
+                <div className="absolute top-2 right-2 text-xs" style={{ color: THEME.navy }}><Check className="w-4 h-4" /></div>
+              )}
+            </label>
+          ))}
         </div>
-      </form>
-    </div>
+      </div>
+
+      {/* BUTTONS - Compact Height */}
+      <div className="flex flex-col md:flex-row gap-3 pt-4 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-none md:w-28 py-2.5 px-4 bg-white border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex-1 py-2.5 px-6 rounded-xl text-white font-bold text-base shadow-md hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          style={{ backgroundColor: THEME.navy }}
+        >
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          {loading ? "Saving..." : (
+            isFree
+              ? "Register (Free)"
+              : `Save Volunteer`
+          )}
+        </button>
+      </div>
+    </form>
   )
 }

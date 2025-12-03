@@ -1,19 +1,124 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Heart,
   User,
   Mail,
   Phone,
-  CreditCard,
-  ShieldCheck,
+  FileText,
   IndianRupee,
   Loader2,
-  FileText
+  ShieldCheck,
 } from "lucide-react";
 
+// --- Constants & Config ---
+const COLORS = {
+  navy: "#022741",
+  yellow: "#FFB70B",
+  grayBorder: "#E5E7EB",
+};
+
+const PREDEFINED_AMOUNTS = [500, 1000, 2100, 5000, 11000];
+
+// --- Reusable Sub-Components ---
+const InputField = ({
+  label,
+  name,
+  type = "text",
+  value,
+  onChange,
+  icon: Icon,
+  placeholder,
+  required = false,
+  maxLength,
+  helperText,
+  className = "",
+}) => (
+  <div className={className}>
+    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <div className="relative group">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#022741] transition-colors">
+        <Icon className="w-4 h-4" />
+      </div>
+      <input
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        required={required}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        className={`w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md 
+        focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all 
+        placeholder:text-gray-400 ${name === "pan" ? "uppercase" : ""}`}
+      />
+    </div>
+    {helperText && <p className="text-[10px] text-gray-400 mt-1 ml-1">{helperText}</p>}
+  </div>
+);
+
+const AmountSelector = ({
+  amounts,
+  selectedAmount,
+  isCustom,
+  customAmount,
+  onSelectAmount,
+  onCustomChange,
+}) => (
+  <div className="space-y-3">
+    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+      Select Donation Amount
+    </label>
+
+    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+      {amounts.map((amount) => {
+        const isSelected = selectedAmount === amount && !isCustom;
+        return (
+          <button
+            key={amount}
+            type="button"
+            onClick={() => onSelectAmount(amount)}
+            className={`py-2 px-1 rounded-md text-sm font-semibold transition-all border
+            ${isSelected
+                ? "bg-[#022741] border-[#022741] text-white shadow-sm"
+                : "bg-white border-gray-200 text-gray-600 hover:border-[#FFB70B] hover:bg-yellow-50"
+              }`}
+          >
+            ₹{amount.toLocaleString()}
+          </button>
+        );
+      })}
+    </div>
+
+    <div className="relative mt-2">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+        <IndianRupee className="w-4 h-4" />
+      </div>
+      <input
+        type="number"
+        value={customAmount}
+        onChange={(e) => onCustomChange(e.target.value)}
+        placeholder="Enter custom amount (e.g. 7500)"
+        min="1"
+        className={`w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none transition-colors font-semibold
+        ${isCustom
+            ? "border-[#FFB70B] bg-yellow-50 text-[#022741]"
+            : "border-gray-300 focus:border-[#022741]"
+          }`}
+      />
+    </div>
+  </div>
+);
+
+// --- Main Component ---
+
 export default function DonateNowPage() {
+  const searchParams = useSearchParams();
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -27,11 +132,24 @@ export default function DonateNowPage() {
   const [isCustom, setIsCustom] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const predefinedAmounts = [500, 1000, 2100, 5000, 11000];
+  // Initialize amount from URL
+  useEffect(() => {
+    const amountParam = searchParams.get("amount");
+    if (amountParam) {
+      const amount = Number(amountParam);
+      if (!isNaN(amount) && amount > 0) {
+        if (PREDEFINED_AMOUNTS.includes(amount)) {
+          setSelectedAmount(amount);
+          setIsCustom(false);
+        } else {
+          setIsCustom(true);
+          setSelectedAmount(null);
+          setFormData(prev => ({ ...prev, customAmount: amount.toString() }));
+        }
+      }
+    }
+  }, [searchParams]);
 
-  // -------------------------
-  // HANDLE INPUTS
-  // -------------------------
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -51,7 +169,8 @@ export default function DonateNowPage() {
   };
 
   const handleCustomAmount = (value) => {
-    if (Number(value) < 0) return;
+    if (value !== "" && Number(value) < 0) return;
+
     setIsCustom(true);
     setSelectedAmount(null);
     setFormData((prev) => ({
@@ -61,14 +180,8 @@ export default function DonateNowPage() {
     }));
   };
 
-  // -------------------------
-  // SUBMIT PAYMENT
-  // -------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    console.log(formData);
-
     const finalAmount = isCustom ? Number(formData.customAmount) : selectedAmount;
 
     if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
@@ -80,7 +193,9 @@ export default function DonateNowPage() {
       alert("Minimum donation is ₹10");
       return;
     }
+
     setIsLoading(true);
+
     try {
       const res = await fetch("/api/create-payment", {
         method: "POST",
@@ -95,194 +210,110 @@ export default function DonateNowPage() {
         }),
       });
 
-      const data = await res.json();
+      const response = await res.json();
 
-      console.log(data);
+      // Handle standardized API response
+      // Structure: { success: true, data: { success: true, redirectUrl: ... } }
+      const paymentData = response.data || response; // Fallback if structure varies
 
-      if (data.success && data.redirectUrl) {
-        window.location.href = data.redirectUrl;
+      if (response.success && paymentData.redirectUrl) {
+        window.location.href = paymentData.redirectUrl;
       } else {
-        alert(data.message || "Unable to initiate payment.");
+        alert(response.message || "Unable to initiate payment.");
       }
     } catch (err) {
       console.error("Payment error:", err);
       alert("Something went wrong. Try again.");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
-  // Colors
-  const navyColor = '#022741';
-  const yellowColor = '#FFB70B';
-
   return (
-    <div className="min-h-screen bg-gray-50 py-5 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-
-        {/* 1. COMPACT HEADER */}
-        <div className="mb-6 border-b border-gray-200 pb-3">
-          <h1 className="text-3xl font-bold flex items-center gap-3" style={{ color: navyColor }}>
-            <Heart className="w-8 h-8 text-red-500 fill-current" />
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-6 text-center sm:text-left">
+          <h1
+            className="text-2xl sm:text-3xl font-bold flex items-center justify-center sm:justify-start gap-2.5"
+            style={{ color: COLORS.navy }}
+          >
+            <Heart className="w-7 h-7 text-red-500 fill-current animate-pulse" />
             Make a Donation
           </h1>
-          <p className="text-gray-500 mt-2 text-sm sm:text-base max-w-2xl">
-            Your generous contribution supports our mission and brings hope to those in need.
+          <p className="text-gray-500 mt-2 text-sm max-w-lg mx-auto sm:mx-0 leading-relaxed">
+            Your generous contribution supports our mission and brings hope.
           </p>
         </div>
 
-        {/* 2. MAIN FORM CARD */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+          <div className="w-full h-1.5" style={{ backgroundColor: COLORS.yellow }}></div>
 
-          {/* FIX: Solid Top Border Div (No clipping issues) */}
-          <div className="w-full h-2" style={{ backgroundColor: yellowColor }}></div>
-
-          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
-
-            {/* SECTION 1: PERSONAL DETAILS */}
-            <div>
-              {/* <h2 className="text-xl font-bold mb-5 flex items-center gap-2" style={{ color: navyColor }}>
-                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-800">
-                  <User className="w-5 h-5" />
-                </div>
-                Your Details
-              </h2> */}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Full Name */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Full Name *</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                      <User className="w-5 h-5" />
-                    </div>
-                    <input
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="John Doe"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base"
-                    />
-                  </div>
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number *</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                      <Phone className="w-5 h-5" />
-                    </div>
-                    <input
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="+91 98765 43210"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base"
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Email Address *</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                      <Mail className="w-5 h-5" />
-                    </div>
-                    <input
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="you@example.com"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base"
-                    />
-                  </div>
-                </div>
-
-                {/* PAN Card */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">PAN (Optional)</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <input
-                      name="pan"
-                      value={formData.pan}
-                      onChange={handleInputChange}
-                      maxLength={10}
-                      placeholder="ABCDE1234F"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-[#022741] focus:ring-1 focus:ring-[#022741] outline-none transition-all text-base uppercase placeholder:normal-case"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1 ml-1">For 80G Tax Exemption.</p>
-                </div>
-              </div>
+          <form onSubmit={handleSubmit} className="p-5 sm:p-7 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InputField
+                label="Full Name"
+                name="name"
+                icon={User}
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="John Doe"
+                required
+              />
+              <InputField
+                label="Phone Number"
+                name="phone"
+                type="tel"
+                icon={Phone}
+                value={formData.phone}
+                onChange={handleInputChange}
+                placeholder="+91 98765 43210"
+                required
+              />
+              <InputField
+                label="Email Address"
+                name="email"
+                type="email"
+                icon={Mail}
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="you@example.com"
+                required
+              />
+              <InputField
+                label="PAN Card"
+                name="pan"
+                icon={FileText}
+                value={formData.pan}
+                onChange={handleInputChange}
+                maxLength={10}
+                placeholder="ABCDE1234F"
+                helperText="For 80G Tax Exemption (Optional)"
+              />
             </div>
 
-            {/* SECTION 2: AMOUNT SELECTION */}
-            <div>
-              {/* <h2 className="text-xl font-bold mb-5 flex items-center gap-2" style={{ color: navyColor }}>
-                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-800">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                Choose Amount
-              </h2> */}
+            <hr className="border-gray-100" />
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-5">
-                {predefinedAmounts.map((amount) => (
-                  <button
-                    type="button"
-                    key={amount}
-                    onClick={() => handleAmountSelect(amount)}
-                    className={`py-3 px-2 rounded-lg font-bold text-base transition-all border-2
-                      ${selectedAmount === amount && !isCustom
-                        ? "bg-[#022741] border-[#022741] text-white shadow-md transform -translate-y-0.5"
-                        : "bg-white border-gray-200 text-gray-600 hover:border-yellow-400 hover:bg-yellow-50"
-                      }`}
-                  >
-                    ₹{amount.toLocaleString()}
-                  </button>
-                ))}
-              </div>
+            <AmountSelector
+              amounts={PREDEFINED_AMOUNTS}
+              selectedAmount={selectedAmount}
+              isCustom={isCustom}
+              customAmount={formData.customAmount}
+              onSelectAmount={handleAmountSelect}
+              onCustomChange={handleCustomAmount}
+            />
 
-              {/* Custom Amount Input */}
-              <div className="relative">
-                <label className="text-sm font-semibold text-gray-500 mb-2 block">Or enter custom amount</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <IndianRupee className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="number"
-                    value={formData.customAmount}
-                    onChange={(e) => handleCustomAmount(e.target.value)}
-                    placeholder="Enter amount (e.g. 5000)"
-                    min="1"
-                    className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none transition-colors font-bold text-xl
-                      ${isCustom ? "border-yellow-400 bg-yellow-50 text-[#022741]" : "border-gray-200 focus:border-[#022741]"}`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* SUBMIT BUTTON AREA */}
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all transform active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                style={{ backgroundColor: yellowColor, color: navyColor }}
+                className="w-full py-3 rounded-lg font-bold text-base shadow-md hover:shadow-lg transition-all 
+                transform active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed 
+                flex items-center justify-center gap-2 text-white"
+                style={{ backgroundColor: COLORS.navy }}
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                     Processing...
                   </>
                 ) : (
@@ -292,12 +323,11 @@ export default function DonateNowPage() {
                 )}
               </button>
 
-              <div className="mt-5 flex items-center justify-center gap-2 text-sm text-gray-500 bg-gray-50 py-3 rounded-lg border border-gray-100">
-                <ShieldCheck className="w-5 h-5 text-green-600" />
-                <span>Secure payment powered by <strong>PhonePe</strong>. Encrypted & Safe.</span>
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500 bg-gray-50 py-2.5 rounded-md border border-gray-100">
+                <ShieldCheck className="w-4 h-4 text-green-600" />
+                <span>Secured by <strong>PhonePe</strong>. Encrypted & Safe.</span>
               </div>
             </div>
-
           </form>
         </div>
       </div>

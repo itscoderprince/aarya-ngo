@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"
-import ChevronRightIcon from "@mui/icons-material/ChevronRight"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import DonateButton from "../DonateButton/DonateButton"
 
 export default function HomeCarousel() {
@@ -51,7 +50,7 @@ export default function HomeCarousel() {
     return () => clearInterval(interval)
   }, [images])
 
-  // ✅ Framer Variants in JavaScript (no type annotations)
+  // Framer Variants
   const variants = {
     enter: (dir) => ({
       x: dir > 0 ? 300 : -300,
@@ -98,21 +97,23 @@ export default function HomeCarousel() {
       {/* Left Arrow */}
       <button
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 p-2 rounded-full text-white hover:bg-black/60 transition"
+        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 p-2 rounded-full text-white hover:bg-black/60 transition z-10"
+        aria-label="Previous Slide"
       >
-        <ChevronLeftIcon fontSize="large" />
+        <ChevronLeft className="w-8 h-8" />
       </button>
 
       {/* Right Arrow */}
       <button
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 p-2 rounded-full text-white hover:bg-black/60 transition"
+        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 p-2 rounded-full text-white hover:bg-black/60 transition z-10"
+        aria-label="Next Slide"
       >
-        <ChevronRightIcon fontSize="large" />
+        <ChevronRight className="w-8 h-8" />
       </button>
 
       {/* Navigation Bars */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex space-x-2">
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
         {images.map((_, idx) => (
           <button
             key={idx}
@@ -120,15 +121,15 @@ export default function HomeCarousel() {
               setDirection(idx > current ? 1 : -1)
               setCurrent(idx)
             }}
-            className={`h-1 w-8 rounded-full transition-all ${
-              idx === current ? "bg-white" : "bg-gray-400/70"
-            }`}
+            className={`h-1 w-8 rounded-full transition-all ${idx === current ? "bg-white" : "bg-gray-400/70"
+              }`}
+            aria-label={`Go to slide ${idx + 1}`}
           />
         ))}
       </div>
 
       {/* Donate Button */}
-      <div className="absolute bottom-4 right-4">
+      <div className="absolute bottom-4 right-4 z-10">
         <DonateButton className="cursor-pointer hover:scale-105 transition" />
       </div>
     </div>

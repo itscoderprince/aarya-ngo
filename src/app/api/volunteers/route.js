@@ -1,144 +1,171 @@
-import { connectDB } from "@/lib/mongodb"
-import Volunteer from "@/models/Volunteer"
-import { uploadToCloudinary } from "@/lib/cloudinary"
-import { sendConfirmationEmail, sendApprovalEmail } from "@/lib/mailer"
-import { NextResponse } from "next/server"
+import { connectDB } from "@/lib/mongodb";
+import Volunteer from "@/models/Volunteer";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { sendConfirmationEmail, sendApprovalEmail } from "@/lib/mailer";
+import { verifyToken } from "@/middleware/adminAuth";
+import { apiHandler, successResponse, errorResponse } from "@/lib/api-utils";
 
-function validateAdminToken(token) {
-  if (!token) return false
-  try {
-    const decoded = Buffer.from(token, "base64").toString("utf-8")
-    const [username, password] = decoded.split(":")
-    return username === "admin" && password === "admin123"
-  } catch (e) {
-    return false
-  }
-}
-
-const validityPrices = {
+const VALIDITY_PRICES = {
   "1year": 501,
   "3year": 1100,
   lifetime: 5100,
+  "free": 0,
+};
+
+// Helper to check admin status
+function checkAdmin(req) {
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  if (!token) return false;
+  return verifyToken(token); // Returns payload or null
 }
 
-function generateVolunteerId() {
-  const prefix = "VOL"
-  const timestamp = Date.now().toString().slice(-6)
-  const random = Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, "0")
-  return `${prefix}-${timestamp}-${random}`
-}
+export const GET = apiHandler(async (req) => {
+  await connectDB();
+  const { searchParams } = new URL(req.url);
 
-export async function GET(request) {
-  try {
-    await connectDB()
-    const { searchParams } = new URL(request.url)
-    const all = searchParams.get("all")
-    const volunteerId = searchParams.get("volunteerId")
-
-    if (volunteerId) {
-      const volunteer = await Volunteer.findOne({ volunteerId })
-      if (!volunteer) {
-        return NextResponse.json({ error: "Volunteer not found" }, { status: 404 })
-      }
-      return NextResponse.json(volunteer)
-    }
-
-    if (all) {
-      const volunteers = await Volunteer.find({}).sort({ createdAt: -1 })
-      return NextResponse.json(volunteers)
-    }
-
-    const volunteers = await Volunteer.find({
-      status: "approved",
-      isPublished: true,
-    }).sort({ createdAt: -1 })
-    return NextResponse.json(volunteers)
-  } catch (error) {
-    console.log("[v0] GET volunteers error:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  // Single ID Fetch
+  const volunteerId = searchParams.get("volunteerId");
+  if (volunteerId) {
+    const volunteer = await Volunteer.findOne({ volunteerId }).lean();
+    if (!volunteer) return errorResponse("Volunteer not found", 404);
+    return successResponse(volunteer);
   }
-}
 
-export async function POST(request) {
-  try {
-    const authHeader = request.headers.get("authorization")
-    const token = authHeader?.replace("Bearer ", "")
-    const isAdmin = token && validateAdminToken(token)
+  // Pagination & Filtering
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = parseInt(searchParams.get("limit") || "10");
+  const search = searchParams.get("search") || "";
+  const status = searchParams.get("status") || "all";
+  const validity = searchParams.get("validity") || "all";
+  const mode = searchParams.get("mode"); // 'public' or 'admin'
 
-    await connectDB()
+  const query = {};
 
-    const formData = await request.formData()
-    const name = formData.get("name")
-    const email = formData.get("email")
-    const dob = formData.get("dob")
-    const bloodGroup = formData.get("bloodGroup")
-    const address = formData.get("address")
-    const mobile = formData.get("mobile")
-    const validity = formData.get("validity")
-    const isAdminCreate = formData.get("isAdminCreate") === "true"
-
-    if (!name || !email || !dob || !bloodGroup || !address || !mobile || !validity) {
-      return NextResponse.json({ error: "All fields required" }, { status: 400 })
-    }
-
-    let uploadResult = null
-    let profilePicResult = null
-    let status = "pending"
-    let isPublished = false
-    let notes = ""
-
-    if (isAdminCreate && isAdmin) {
-      status = formData.get("status") || "approved"
-      isPublished = status === "approved"
-      notes = formData.get("notes") || ""
-    } else if (!isAdminCreate) {
-      const receiptFile = formData.get("receipt")
-      if (!receiptFile || !(receiptFile instanceof File)) {
-        return NextResponse.json({ error: "Receipt file required" }, { status: 400 })
-      }
-      uploadResult = await uploadToCloudinary(receiptFile, "volunteer-receipts")
-    }
-
-    const profilePicFile = formData.get("profilePic")
-    if (profilePicFile && profilePicFile instanceof File) {
-      profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles")
-    }
-
-    const volunteerId = generateVolunteerId()
-
-    const volunteer = new Volunteer({
-      name,
-      email,
-      dob: new Date(dob),
-      bloodGroup,
-      address,
-      mobile,
-      validity,
-      status,
-      isPublished,
-      notes,
-      amount: validityPrices[validity],
-      volunteerId,
-      paymentReceiptUrl: uploadResult ? uploadResult.secure_url : null,
-      cloudinaryId: uploadResult ? uploadResult.public_id : null,
-      profilePicUrl: profilePicResult ? profilePicResult.secure_url : null,
-      profilePicCloudinaryId: profilePicResult ? profilePicResult.public_id : null,
-      ...(isAdminCreate && isAdmin && { approvalDate: new Date(), approvedBy: "admin" }),
-    })
-
-    await volunteer.save()
-
-    if (!isAdminCreate) {
-      await sendConfirmationEmail(email, name)
-    } else if (isAdminCreate && isAdmin && status === "approved") {
-      await sendApprovalEmail(email, volunteer)
-    }
-
-    return NextResponse.json(volunteer, { status: 201 })
-  } catch (error) {
-    console.log("[v0] POST volunteer error:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  // Public Mode: Strict Filtering
+  if (mode === "public") {
+    query.status = "approved";
+    query.isPublished = true;
   }
-}
+
+  // Search Logic
+  if (search) {
+    const searchRegex = { $regex: search, $options: "i" };
+    query.$or = [
+      { name: searchRegex },
+      { email: searchRegex },
+      { mobile: searchRegex },
+      { volunteerId: searchRegex },
+    ];
+  }
+
+  // Filters (Admin can override, but Public is strict)
+  if (mode !== "public") {
+    if (status !== "all") query.status = status;
+    if (validity !== "all") query.validity = validity;
+  } else {
+    // Public can optionally filter by validity (plan) if needed, but status is locked
+    if (validity !== "all") query.validity = validity;
+  }
+
+  // If 'all' flag is NOT set, we might default to approved/published (legacy behavior), 
+  // BUT for admin table we usually want everything unless filtered.
+  // The previous code had: if (all) return all; else return approved & published.
+  // We will assume if pagination params are present, we are in "Admin Table Mode" and want everything matching filters.
+  // If no params and not 'all', we might fallback to legacy public behavior, but let's stick to Admin needs here.
+
+  // Calculate Skip
+  const skip = (page - 1) * limit;
+
+  // Fetch Data
+  const [volunteers, total] = await Promise.all([
+    Volunteer.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Volunteer.countDocuments(query),
+  ]);
+
+  return successResponse({
+    volunteers,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
+});
+
+export const POST = apiHandler(async (req) => {
+  const isAdminUser = checkAdmin(req);
+  await connectDB();
+
+  const formData = await req.formData();
+
+  const name = formData.get("name");
+  const email = formData.get("email");
+  const dob = formData.get("dob");
+  const bloodGroup = formData.get("bloodGroup");
+  const address = formData.get("address");
+  const mobile = formData.get("mobile");
+  const validity = formData.get("validity");
+  const referralCode = formData.get("referralCode");
+  const isAdminCreate = formData.get("isAdminCreate") === "true";
+
+  if (!name || !email || !dob || !bloodGroup || !address || !mobile || !validity) {
+    return errorResponse("All fields are required", 400);
+  }
+
+  let profilePicResult = null;
+  let status = "pending";
+  let isPublished = false;
+  let notes = "";
+
+  // Admin Override Logic
+  if (isAdminCreate && isAdminUser) {
+    status = formData.get("status") || "approved";
+    isPublished = status === "approved";
+    notes = formData.get("notes") || "";
+  }
+
+  // Profile Pic Upload
+  const profilePicFile = formData.get("profilePic");
+  if (profilePicFile && profilePicFile instanceof File) {
+    profilePicResult = await uploadToCloudinary(profilePicFile, "volunteer-profiles");
+  }
+
+  const isFree = formData.get("isFree") === "true";
+
+  // Calculate amount
+  const finalAmount = (isAdminCreate && isFree) ? 0 : (VALIDITY_PRICES[validity] || 0);
+
+  const volunteer = await Volunteer.create({
+    name,
+    email,
+    dob: new Date(dob),
+    bloodGroup,
+    address,
+    mobile,
+    validity,
+    volunteerType: validity,
+    status,
+    isPublished,
+    notes,
+    amount: finalAmount,
+    referralCode,
+    profilePicUrl: profilePicResult ? profilePicResult.secure_url : null,
+    profilePicCloudinaryId: profilePicResult ? profilePicResult.public_id : null,
+    ...(isAdminCreate && isAdminUser && { approvalDate: new Date(), approvedBy: "admin" }),
+  });
+
+  // Send Emails
+  if (!isAdminCreate) {
+    await sendConfirmationEmail(email, name);
+  } else if (isAdminCreate && isAdminUser && status === "approved") {
+    await sendApprovalEmail(email, volunteer);
+  }
+
+  return successResponse(volunteer, 201);
+});

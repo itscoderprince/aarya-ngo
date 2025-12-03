@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import Navbar from "@/components/Shared/Navbar";
 import Footer from "@/components/Shared/Footer";
+import ClientLayout from "@/components/ClientLayout";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -34,9 +35,9 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} bg-white text-slate-900 antialiased`}
         suppressHydrationWarning
       >
-        <Navbar/>
-        {children}
-        <Footer/>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

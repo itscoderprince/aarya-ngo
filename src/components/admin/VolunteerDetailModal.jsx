@@ -1,6 +1,6 @@
 "use client"
 
-import { X } from "lucide-react"
+import { X, User, Phone, Calendar, MapPin, FileText, CreditCard, Clock, CheckCircle, AlertCircle, Shield, Mail, Droplet } from "lucide-react"
 
 export default function VolunteerDetailModal({ volunteer, onClose }) {
   if (!volunteer) return null
@@ -15,140 +15,169 @@ export default function VolunteerDetailModal({ volunteer, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600/90 to-blue-700/90 backdrop-blur-md text-white p-5 flex justify-between items-center border-b border-white/20">
-          <div className="flex items-center gap-3">
-            {volunteer.profilePicUrl && (
-              <img
-                src={volunteer.profilePicUrl || "/placeholder.svg"}
-                alt={volunteer.name}
-                className="w-12 h-12 object-cover rounded-full border-2 border-white/50"
-              />
-            )}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+        style={{ maxHeight: '90vh' }}
+      >
+
+        {/* Header - Compact */}
+        <div className="bg-[#022741] text-white px-6 py-4 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+              <User className="w-5 h-5 text-blue-200" />
+            </div>
             <div>
-              <h2 className="text-xl font-bold">{volunteer.name}</h2>
-              <p className="text-blue-100 text-sm">{volunteer.mobile}</p>
+              <h2 className="text-lg font-bold tracking-tight">Volunteer Profile</h2>
+              <p className="text-blue-200 text-xs opacity-80">ID: {volunteer.volunteerId || "N/A"}</p>
             </div>
           </div>
-          <button onClick={onClose} className="hover:bg-blue-800/50 p-2 rounded-lg transition backdrop-blur-sm">
-            <X size={20} />
+          <button
+            onClick={onClose}
+            className="bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors backdrop-blur-sm"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-5">
-          {/* Status & Health Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 backdrop-blur-sm p-4 rounded-xl border border-blue-200/50">
-              <p className="text-xs font-semibold text-blue-600 mb-1">Status</p>
-              <span
-                className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
-                  volunteer.status === "pending"
-                    ? "bg-yellow-400/80 text-yellow-900"
-                    : volunteer.status === "approved"
-                      ? "bg-green-400/80 text-green-900"
-                      : "bg-red-400/80 text-red-900"
-                }`}
-              >
-                {volunteer.status.charAt(0).toUpperCase() + volunteer.status.slice(1)}
-              </span>
-            </div>
-            <div className="bg-gradient-to-br from-red-50 to-red-100/50 backdrop-blur-sm p-4 rounded-xl border border-red-200/50">
-              <p className="text-xs font-semibold text-red-600 mb-1">Blood Group</p>
-              <p className="text-lg font-bold text-red-900">{volunteer.bloodGroup}</p>
-            </div>
-          </div>
+        {/* Content - Grid Layout */}
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
 
-          {/* Personal Information */}
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 backdrop-blur-sm p-4 rounded-xl border border-slate-200/50">
-            <h4 className="text-sm font-bold text-slate-700 mb-3">Personal Information</h4>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-slate-600 text-xs mb-1">Date of Birth</p>
-                <p className="font-semibold text-slate-900">{formatDate(volunteer.dob)}</p>
+            {/* Left Column: Profile & Key Info (4 cols) */}
+            <div className="lg:col-span-4 space-y-4">
+              {/* Profile Card */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+                <div className="w-24 h-24 rounded-full bg-gray-100 border-4 border-white shadow-md overflow-hidden mb-3">
+                  {volunteer.profilePicUrl ? (
+                    <img src={volunteer.profilePicUrl} alt={volunteer.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50"><User size={32} /></div>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">{volunteer.name}</h3>
+                <div className="flex gap-2 mb-4">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${volunteer.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                      volunteer.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                        'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                    {volunteer.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="w-full space-y-3 text-left">
+                  <div className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    <span className="truncate">{volunteer.email}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">
+                    <Phone className="w-4 h-4 text-green-500" />
+                    <span>{volunteer.mobile}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-slate-600 text-xs mb-1">Phone</p>
-                <p className="font-semibold text-slate-900">{volunteer.mobile}</p>
+
+              {/* Membership Status */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#022741]" /> Membership
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50 p-2 rounded-lg text-center">
+                    <p className="text-[10px] text-blue-600 font-bold uppercase">Plan</p>
+                    <p className="text-sm font-bold text-blue-900">{volunteer.validity === 'free' ? 'Free' : volunteer.validity}</p>
+                  </div>
+                  <div className="bg-green-50 p-2 rounded-lg text-center">
+                    <p className="text-[10px] text-green-600 font-bold uppercase">Paid</p>
+                    <p className="text-sm font-bold text-green-900">₹{volunteer.amount}</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Address */}
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 backdrop-blur-sm p-4 rounded-xl border border-slate-200/50">
-            <p className="text-xs font-bold text-slate-700 mb-2">Address</p>
-            <p className="text-sm text-slate-900 leading-relaxed">{volunteer.address}</p>
-          </div>
+            {/* Right Column: Details (8 cols) */}
+            <div className="lg:col-span-8 space-y-4">
+              {/* Personal & Address */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <h4 className="text-sm font-bold text-gray-900 mb-4 border-b pb-2">Personal Details</h4>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Date of Birth</p>
+                    <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" /> {formatDate(volunteer.dob)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Blood Group</p>
+                    <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <Droplet className="w-3.5 h-3.5 text-red-500" /> {volunteer.bloodGroup}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 mb-1">Address</p>
+                    <p className="text-sm text-gray-700 flex items-start gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" /> {volunteer.address}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          {/* Membership Details */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 backdrop-blur-sm p-3 rounded-lg border border-purple-200/50">
-              <p className="text-xs font-semibold text-purple-600 mb-1">Validity</p>
-              <p className="font-bold text-purple-900 text-sm">
-                {volunteer.validity === "1year" ? "1 Yr" : volunteer.validity === "3year" ? "3 Yr" : "Lifetime"}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100/50 backdrop-blur-sm p-3 rounded-lg border border-green-200/50">
-              <p className="text-xs font-semibold text-green-600 mb-1">Amount</p>
-              <p className="font-bold text-green-900 text-sm">₹{volunteer.amount}</p>
-            </div>
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 backdrop-blur-sm p-3 rounded-lg border border-indigo-200/50">
-              <p className="text-xs font-semibold text-indigo-600 mb-1">Published</p>
-              <p className="font-bold text-indigo-900 text-sm">{volunteer.isPublished ? "Yes" : "No"}</p>
-            </div>
-          </div>
+              {/* Notes & Timeline */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 h-full">
+                  <h4 className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5" /> Notes
+                  </h4>
+                  <p className="text-sm text-amber-900 leading-relaxed">
+                    {volunteer.notes || "No notes available for this volunteer."}
+                  </p>
+                </div>
 
-          {/* Notes */}
-          {volunteer.notes && (
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 backdrop-blur-sm p-4 rounded-xl border border-amber-200/50">
-              <p className="text-xs font-bold text-amber-700 mb-2">Notes</p>
-              <p className="text-sm text-amber-900">{volunteer.notes}</p>
-            </div>
-          )}
+                <div className="bg-gray-100 p-4 rounded-xl border border-gray-200 h-full">
+                  <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Timeline
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Applied</span>
+                      <span className="font-medium text-gray-900">{formatDate(volunteer.createdAt)}</span>
+                    </div>
+                    {volunteer.approvalDate && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Approved</span>
+                        <span className="font-medium text-green-700">{formatDate(volunteer.approvalDate)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-          {/* Documents */}
-          {volunteer.paymentReceiptUrl && (
-            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 backdrop-blur-sm p-4 rounded-xl border border-cyan-200/50">
-              <p className="text-xs font-bold text-cyan-700 mb-2">Payment Receipt</p>
-              <a
-                href={volunteer.paymentReceiptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-cyan-600 hover:text-cyan-700 font-semibold hover:underline break-all"
-              >
-                View Document →
-              </a>
-            </div>
-          )}
-
-          {/* Timeline */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 backdrop-blur-sm p-4 rounded-xl border border-gray-200/50 text-xs">
-            <p className="font-bold text-gray-700 mb-2">Timeline</p>
-            <div className="space-y-1 text-gray-600">
-              <p>
-                Applied: <span className="font-semibold text-gray-800">{formatDate(volunteer.createdAt)}</span>
-              </p>
-              {volunteer.approvalDate && (
-                <p>
-                  Approved: <span className="font-semibold text-gray-800">{formatDate(volunteer.approvalDate)}</span>
-                </p>
-              )}
-              {volunteer.approvedBy && (
-                <p>
-                  By: <span className="font-semibold text-gray-800">{volunteer.approvedBy}</span>
-                </p>
+              {/* Documents Link */}
+              {volunteer.paymentReceiptUrl && (
+                <div className="bg-cyan-50 p-3 rounded-lg border border-cyan-100 flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-cyan-800">
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-sm font-medium">Payment Receipt Available</span>
+                  </div>
+                  <a
+                    href={volunteer.paymentReceiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs bg-cyan-100 hover:bg-cyan-200 text-cyan-800 px-3 py-1.5 rounded-md transition font-bold"
+                  >
+                    View Receipt
+                  </a>
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/50 backdrop-blur-md border-t border-white/20 p-4 flex justify-end">
+        <div className="p-4 border-t border-gray-100 bg-white shrink-0 flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition backdrop-blur-sm text-sm"
+            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-lg transition text-sm"
           >
             Close
           </button>

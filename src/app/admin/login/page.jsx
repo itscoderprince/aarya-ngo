@@ -16,17 +16,20 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      if (username === "admin" && password === "admin123") {
-        // Create a token (Base64 encoded credentials)
-        const token = btoa(`${username}:${password}`)
-        localStorage.setItem("adminToken", token)
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        localStorage.setItem("adminToken", data.token)
         localStorage.setItem("adminTokenTime", Date.now().toString())
-        // Force navigate after token is stored
-        setTimeout(() => {
-          router.push("/admin/volunteers")
-        }, 100)
+        router.push("/admin")
       } else {
-        setError("Invalid username or password")
+        setError(data.error || "Invalid credentials")
       }
     } catch (err) {
       console.log("[v0] Login error:", err)

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  CheckCircle, // Changed to CheckCircle for better filled styling
+  CheckCircle,
   XCircle,
   Loader2,
   Download,
@@ -94,8 +94,10 @@ export default function DonateSuccessPage() {
   // ------------------------------
   // MAIN RENDER
   // ------------------------------
-  const isSuccess = paymentStatus === "PAYMENT_SUCCESS" || paymentStatus === "COMPLETED";
-  const isPending = paymentStatus === "PENDING";
+  // FIX: Case-insensitive check for success status
+  const normalizedStatus = paymentStatus?.toLowerCase() || "";
+  const isSuccess = normalizedStatus === "payment_success" || normalizedStatus === "completed" || normalizedStatus === "success";
+  const isPending = normalizedStatus === "pending";
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6">
