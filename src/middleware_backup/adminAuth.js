@@ -7,6 +7,7 @@ function generateToken(username) {
   })
 }
 
+// verify token
 function verifyToken(token) {
   try {
     return jwt.verify(token, process.env.JWT_SECRET)
@@ -15,6 +16,7 @@ function verifyToken(token) {
   }
 }
 
+// with admin auth
 export function withAdminAuth(handler) {
   return async (request, context) => {
     let token = request.cookies.get("adminToken")?.value
