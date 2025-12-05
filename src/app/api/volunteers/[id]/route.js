@@ -3,29 +3,17 @@ import { connectDB } from "@/lib/mongodb";
 import Volunteer from "@/models/Volunteer";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import { sendApprovalEmail, sendUpdateEmail, sendRejectionEmail } from "@/lib/mailer";
+import { verifyToken } from "@/middleware/adminAuth";
 
 // ==========================================
 // 1. SECURITY & HELPERS
 // ==========================================
 
-function isAuthenticated(request) {
-  const authHeader = request.headers.get("authorization") || "";
-  const token = authHeader.replace("Bearer ", "").trim();
-
+function checkAdmin(request) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
   if (!token) return false;
-
-  try {
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const [username, password] = decoded.split(":");
-
-    // Compare against Environment Variables (NEVER hardcode in production)
-    return (
-      username === process.env.ADMIN_USERNAME &&
-      password === process.env.ADMIN_PASSWORD
-    );
-  } catch (e) {
-    return false;
-  }
+  return verifyToken(token); // Returns payload or null
 }
 
 /**
@@ -60,7 +48,7 @@ export async function GET(request, { params }) {
 // ==========================================
 export async function PUT(request, { params }) {
   // A. Security Check
-  if (!isAuthenticated(request)) {
+  if (!checkAdmin(request)) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
   }
 
@@ -157,7 +145,7 @@ export async function PUT(request, { params }) {
 // ==========================================
 export async function DELETE(request, { params }) {
   // Security Check
-  if (!isAuthenticated(request)) {
+  if (!checkAdmin(request)) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
   }
 

@@ -1,8 +1,6 @@
 import "./globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
-import Navbar from "@/components/Shared/Navbar";
-import Footer from "@/components/Shared/Footer";
 import ClientLayout from "@/components/ClientLayout";
 
 const geistSans = Geist({
@@ -18,13 +16,17 @@ export const metadata = {
   description:
     "Join Prayas by Aarya Foundation in creating positive change in communities worldwide. Donate, volunteer, and help us build a better tomorrow.",
   generator: "Next.js",
+  icons: {
+    icon: [
+      { url: '/logo.jpg' },
+    ],
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
         <style>{`
           html {
             font-family: ${GeistSans.style.fontFamily};

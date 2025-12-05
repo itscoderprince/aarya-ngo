@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Lock, User, ArrowRight, Loader2, ShieldCheck } from "lucide-react"
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -40,46 +41,89 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Login</h1>
-        <p className="text-gray-600 mb-6">Enter your credentials to manage volunteers</p>
+    <div className="min-h-screen bg-[#022741] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+        {/* Header Section */}
+        <div className="px-8 py-3 text-center border-b border-gray-100">
+          <h1 className="text-2xl font-bold text-[#022741] tracking-tight">
+            AARYA FOUNDATION
+          </h1>
+          <p className="text-gray-500 text-sm font-medium">
+            Admin Portal Access
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="admin"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+        {/* Form Section */}
+        <div className="p-8">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 text-sm flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#022741] ml-1">Username</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400 group-focus-within:text-[#022741] transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  className="w-full pl-11 pr-4 py-3 bg-[#F0F4F8] border-2 border-transparent rounded-xl text-[#022741] placeholder-gray-400 focus:outline-none focus:bg-white focus:border-[#FFB70B] transition-all font-medium"
+                  required
+                />
+              </div>
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 rounded-lg transition"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#022741] ml-1">Password</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-[#022741] transition-colors" />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-11 pr-4 py-3 bg-[#F0F4F8] border-2 border-transparent rounded-xl text-[#022741] placeholder-gray-400 focus:outline-none focus:bg-white focus:border-[#FFB70B] transition-all font-medium"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#FFB70B] hover:bg-[#e5a50a] text-[#022741] font-bold py-3.5 rounded-xl transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Verifying...</span>
+                </>
+              ) : (
+                <>
+                  <span>Login to Dashboard</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-[#F0F4F8] p-4 text-center border-t border-gray-100">
+          <p className="text-[#022741]/60 text-xs font-medium">
+            &copy; {new Date().getFullYear()} Aarya Foundation. Secure Access.
+          </p>
+        </div>
 
       </div>
     </div>

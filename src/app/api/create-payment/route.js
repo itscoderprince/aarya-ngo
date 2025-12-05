@@ -15,7 +15,19 @@ const VALIDITY_PRICES = {
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
+// ⛔ Prevent running this API during Vercel build
+const isBuildTime = process.env.NEXT_PHASE === "phase-production-build";
+
 export const POST = apiHandler(async (req) => {
+
+  // 🚫 If build environment → skip external API call
+  if (isBuildTime) {
+    return successResponse({
+      buildWarning: true,
+      message: "Skipped PhonePe API call during build phase.",
+    });
+  }
+
   await connectDB();
 
   const contentType = req.headers.get("content-type") || "";
@@ -27,38 +39,32 @@ export const POST = apiHandler(async (req) => {
   if (contentType.includes("multipart/form-data")) {
     const formData = await req.formData();
 
-    // Extract fields
     for (const [key, value] of formData.entries()) {
       if (typeof value === "string") data[key] = value;
     }
 
-    // Handle File Upload
     const profilePic = formData.get("profilePic");
     if (profilePic instanceof File) {
       uploadResult = await uploadToCloudinary(profilePic, "volunteers/profiles");
       profilePicUrl = uploadResult.secure_url;
     }
+
   } else {
     data = await req.json();
   }
 
-  // Normalize Data
+  // Normalize fields
   const isVolunteer = data.paymentType?.toUpperCase() === "VOLUNTEER";
   const phone = data.phone || data.mobile;
   const referral = data.referral || data.referralId;
 
-  // 2. Calculate & Validate Amount
+  // 2. Validate Amount
   let amountToPay = parseFloat(data.amount);
-
-  if (isVolunteer) {
-    // Server-side price enforcement for volunteers
-    if (data.validity && VALIDITY_PRICES[data.validity]) {
-      amountToPay = VALIDITY_PRICES[data.validity];
-    }
+  if (isVolunteer && data.validity && VALIDITY_PRICES[data.validity]) {
+    amountToPay = VALIDITY_PRICES[data.validity];
   }
 
   const amountInPaise = Math.round(amountToPay * 100);
-
   if (!amountInPaise || amountInPaise <= 0) {
     return errorResponse("Invalid amount. Amount must be greater than 0.", 400);
   }
@@ -69,7 +75,7 @@ export const POST = apiHandler(async (req) => {
   const successPage = isVolunteer ? "/volunteer-conformation" : "/donate-success";
   const redirectUrl = `${BASE_URL}${successPage}?merchantOrderId=${merchantOrderId}`;
 
-  // 4. Initiate PhonePe Payment
+  // 4. Create PhonePe Payment Order
   const paymentResponse = await createPhonePeOrder({
     orderId: merchantOrderId,
     amount: amountInPaise,
@@ -79,7 +85,7 @@ export const POST = apiHandler(async (req) => {
 
   console.log(`[PAYMENT_INIT] Type: ${isVolunteer ? "VOLUNTEER" : "DONATION"}, OrderID: ${merchantOrderId}`);
 
-  // 5. Save Initial Record (Pending State)
+  // 5. Save Initial DB Record
   if (isVolunteer) {
     await Volunteer.create({
       merchantOrderId,
@@ -90,12 +96,12 @@ export const POST = apiHandler(async (req) => {
       bloodGroup: data.bloodGroup,
       address: data.address,
       volunteerType: data.validity,
-      validity: data.validity, // Backward compatibility
+      validity: data.validity,
       referralCode: referral || null,
       amount: amountToPay,
       status: "pending",
       paymentDetails: paymentResponse,
-      profilePicUrl: profilePicUrl,
+      profilePicUrl,
       profilePicCloudinaryId: uploadResult?.public_id || null,
     });
   } else {

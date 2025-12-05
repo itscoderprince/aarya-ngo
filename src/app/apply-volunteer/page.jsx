@@ -213,7 +213,7 @@ export default function VolunteerForm({ isAdmin = false }) {
                 <FormInput label="Referral Code" name="referral" placeholder="Optional" value={formData.referral} onChange={handleChange} icon={Icons.Tag} />
 
                 {/* Address - Compact */}
-                <div className="mb-5 grid col-span-2">
+                <div className="mb-5 col-span-1 md:col-span-2">
                   <label className="block text-xs font-bold mb-1 uppercase tracking-wide opacity-90" style={{ color: THEME.navy }}>Full Address *</label>
                   <div className="relative group">
                     <div className="absolute top-2.5 left-3 flex items-start pointer-events-none text-gray-400 group-focus-within:text-[#022741] transition-colors"><Icons.Map /></div>

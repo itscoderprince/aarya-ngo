@@ -47,7 +47,6 @@ const DonationSchema = new mongoose.Schema(
         },
         receiptNumber: {
             type: String,
-            default: null,
             unique: true,
             sparse: true,
         },

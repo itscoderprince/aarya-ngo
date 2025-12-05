@@ -1,11 +1,33 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Image, Video, FileText, Users, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Image, Video, FileText, Users, Settings, LogOut, CreditCard, MessageSquare } from "lucide-react"
 
 export default function AdminSidebar() {
   const pathname = usePathname()
+  const [unreadMessages, setUnreadMessages] = useState(0)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/api/admin/stats")
+        const data = await res.json()
+        if (data.success) {
+          setUnreadMessages(data.data.counts.unreadContacts || 0)
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin stats:", error)
+      }
+    }
+    fetchStats()
+
+    const handleMessagesRead = () => setUnreadMessages(0)
+    window.addEventListener("messagesRead", handleMessagesRead)
+
+    return () => window.removeEventListener("messagesRead", handleMessagesRead)
+  }, [])
 
   const menuItems = [
     {
@@ -33,10 +55,22 @@ export default function AdminSidebar() {
       isActive: pathname.includes("resources"),
     },
     {
+      href: "/admin/payments",
+      label: "Payments",
+      icon: CreditCard,
+      isActive: pathname.includes("payments"),
+    },
+    {
       href: "/admin/volunteers",
       label: "Volunteers",
       icon: Users,
       isActive: pathname.includes("volunteers"),
+    },
+    {
+      href: "/admin/contacts",
+      label: "Messages",
+      icon: MessageSquare,
+      isActive: pathname.includes("contacts"),
     },
   ]
 
@@ -58,12 +92,15 @@ export default function AdminSidebar() {
               key={item.href}
               href={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${item.isActive
-                  ? "bg-[#FFB70B] text-[#022741] font-bold shadow-md"
-                  : "text-gray-300 hover:bg-white/10 hover:text-white"
+                ? "bg-[#FFB70B] text-[#022741] font-bold shadow-md"
+                : "text-gray-300 hover:bg-white/10 hover:text-white"
                 }`}
             >
               <Icon className={`w-5 h-5 ${item.isActive ? "text-[#022741]" : "text-gray-400 group-hover:text-white"}`} />
               <span className="text-sm">{item.label}</span>
+              {item.label === "Messages" && unreadMessages > 0 && (
+                <span className="ml-auto w-2.5 h-2.5 bg-[#FFB70B] rounded-full animate-pulse"></span>
+              )}
             </Link>
           )
         })}

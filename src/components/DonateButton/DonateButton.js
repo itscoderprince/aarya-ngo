@@ -1,18 +1,20 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { Heart, Loader2 } from "lucide-react"
 
 export default function DonateButton({ size = "medium", className = "", amount = null, showAmount = false }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    setIsLoading(false)
+  }, [pathname])
 
   const handleDonate = () => {
     setIsLoading(true)
-    // Simulate a small delay for better UX or just redirect immediately
-    // If amount is present, we could pass it via query params: /donate-now?amount=${amount}
-    // For now, simple redirect.
     const url = amount ? `/donate-now?amount=${amount}` : "/donate-now"
     router.push(url)
   }

@@ -1,3 +1,5 @@
+"use client"
+
 import TrendingUpIcon from "@mui/icons-material/TrendingUp"
 import PeopleIcon from "@mui/icons-material/People"
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney"

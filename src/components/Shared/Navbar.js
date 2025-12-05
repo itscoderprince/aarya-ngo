@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, ChevronDown } from "lucide-react";
 
@@ -53,19 +54,26 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-[100] border-b border-gray-100">
-      <div className="mx-auto px-2 sm:px-2 lg:px-2">
+      <div className="mx-auto px-2 sm:px-3 lg:px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-[#022741] shadow-md"
+              className="w-12 h-12 flex rounded-full items-center justify-center bg-[#022741] shadow-md overflow-hidden relative"
             >
-              <span className="text-white font-bold text-lg">P</span>
+              <Image
+                src="/logo.jpg"
+                alt="Prayas Logo"
+                fill
+                className="object-cover"
+                sizes="40px"
+              />
             </motion.div>
             <span className="font-bold text-xl text-[#022741]">
-              Prayas by Aarya Foundation
+              Aarya Foundation
+              <p className="text-sm font-semibold mt-[-4px] text-gray-500">(by Prayas)</p>
             </span>
           </Link>
 

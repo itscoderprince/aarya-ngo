@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { MapPin, Phone, Mail, Clock, Send, User, MessageSquare } from "lucide-react"
+import { toast } from "react-hot-toast"
 
 export default function ReachUsPage() {
   const [formData, setFormData] = useState({
@@ -16,15 +17,31 @@ export default function ReachUsPage() {
     setFormData({ ...formData, [name]: value })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      console.log("Form submitted:", formData)
-      alert("Thank you for contacting us! We will get back to you soon.")
-      setFormData({ name: "", email: "", message: "" })
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success("Message sent successfully! We'll get back to you soon.")
+        setFormData({ name: "", email: "", message: "" })
+      } else {
+        toast.error(data.message || "Failed to send message.")
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error)
+      toast.error("Something went wrong. Please try again.")
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }
 
   // Color Constants
@@ -137,33 +154,30 @@ export default function ReachUsPage() {
               {/* Decorative Circle */}
               <div className="absolute top-0 right-0 -mt-4 -mr-4 w-16 h-16 rounded-full bg-white opacity-5"></div>
 
-              <h3 className="text-base font-bold mb-3 border-b border-gray-600 pb-2">Quick Contact</h3>
-
-              <div className="space-y-3 text-xs">
-                {/* Row 1: Phone & Email */}
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="flex gap-2 items-center">
-                    <Phone className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                    <span className="tracking-wide text-gray-100">+91 98765 43210</span>
+              {/* 4. CONTACT INFO */}
+              <div>
+                <h3 className="font-bold text-lg mb-6 border-b-2 inline-block pb-1" style={{ borderColor: yellowColor }}>
+                  Contact Us
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex gap-3 text-sm text-gray-400">
+                    <MapPin className="w-5 h-5 flex-shrink-0" style={{ color: yellowColor }} />
+                    <span>
+                      Saraswati Vidya Nivas, Karamtoli,<br />
+                      Behind Dr S N Yadav, Morabadi,<br />
+                      Ranchi, Jharkhand 834001
+                    </span>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <Mail className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                    <span className="tracking-wide text-gray-100">info@prayas.org</span>
+
+                  <div className="flex gap-3 text-sm text-gray-400 items-center">
+                    <Phone className="w-4 h-4 flex-shrink-0" style={{ color: yellowColor }} />
+                    <span>+91 62002 18724</span>
                   </div>
-                </div>
 
-                {/* Row 2: Address */}
-                <div className="flex gap-2 items-start pt-1">
-                  <MapPin className="w-3.5 h-3.5 text-yellow-400 shrink-0 mt-0.5" />
-                  <span className="leading-snug text-gray-200">
-                    123, Prayas HQ, Civil Lines, <br /> New Delhi, India
-                  </span>
-                </div>
-
-                {/* Row 3: Hours */}
-                <div className="flex gap-2 items-center">
-                  <Clock className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                  <span className="text-gray-200">9:00 AM - 6:00 PM (Mon-Sat)</span>
+                  <div className="flex gap-3 text-sm text-gray-400 items-center">
+                    <Mail className="w-4 h-4 flex-shrink-0" style={{ color: yellowColor }} />
+                    <span>prayasbyaaryafoundation@gmail.com</span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -40,9 +40,9 @@ export async function sendDonorEmail(donation, pdfUrl, pdfBuffer) {
     if (pdfUrl) {
       const updatedHtml = mailOptions.html.replace(
         "<!-- PDF_LINK_PLACEHOLDER -->",
-        `<p style="text-align: center; margin-top: 20px;">
-          <a href="${pdfUrl}" style="background: #FCD34D; color: black; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold;">Download Receipt PDF</a>
-        </p>`
+        `<div style="text-align: center; margin-top: 30px;">
+          <a href="${pdfUrl}" style="background: #FFB70B; color: #022741; padding: 12px 24px; border-radius: 50px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">Download Receipt PDF</a>
+        </div>`
       );
       mailOptions.html = updatedHtml;
     }
@@ -98,7 +98,9 @@ export async function sendAdminEmail(donation, pdfUrl) {
     if (pdfUrl) {
       const updatedHtml = mailOptions.html.replace(
         "<!-- PDF_LINK_PLACEHOLDER -->",
-        `<p><strong>Receipt PDF:</strong> <a href="${pdfUrl}">View/Download</a></p>`
+        `<div style="margin-top: 20px; text-align: center;">
+           <a href="${pdfUrl}" style="color: #022741; font-weight: bold; text-decoration: underline;">View Receipt PDF</a>
+         </div>`
       );
       mailOptions.html = updatedHtml;
     }

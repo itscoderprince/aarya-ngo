@@ -1,18 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ Ensure Next.js knows it should use Node runtime for server routes
-  experimental: {
-    serverComponentsExternalPackages: ["pdfkit", "fontkit"],
-  },
+  // ✅ New correct key (Next.js 15+)
+  serverExternalPackages: ["pdfkit", "fontkit"],
 
-  // ✅ Fixes for PDFKit build issues (avoid SWC parsing of heavy Node deps)
+  // ⚠️ Removed invalid deprecated:
+  // experimental.serverComponentsExternalPackages
+
+  // ✅ Fixes for PDFKit build issues on Vercel
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Prevent Vercel / Next from trying to bundle heavy libs
-      config.externals.push({ pdfkit: "commonjs pdfkit", fontkit: "commonjs fontkit" });
+      // Prevent bundling heavy native packages
+      config.externals.push({
+        pdfkit: "commonjs pdfkit",
+        fontkit: "commonjs fontkit",
+      });
     }
 
-    // (Optional) Polyfill fs/path for client build if needed
+    // Prevent client bundle errors for Node modules
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
@@ -22,31 +26,26 @@ const nextConfig = {
     return config;
   },
 
-  // ✅ Allow images from Cloudinary (for profile pics etc.)
+  // ✅ Allow Cloudinary image loading
   images: {
     remotePatterns: [
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
-        port: "",
         pathname: "/**",
       },
     ],
   },
 
-  // ✅ Ensure dynamic routes are built correctly
+  // ✅ Recommended for server-heavy apps on Vercel
   output: "standalone",
 
-  // ✅ Avoid static caching of API routes (helps with fresh PDF generation)
+  // Prevent stale caches
   generateEtags: false,
 
-  // ✅ Optional: improve build stability
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // Build safety (prevents Vercel failing build)
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
 };
 
 export default nextConfig;

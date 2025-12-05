@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Image, Video, FileText, Users, Clock, ArrowRight, TrendingUp, Activity, CheckCircle, XCircle } from "lucide-react"
+import { Image, Video, FileText, Users, Clock, ArrowRight, TrendingUp, Activity, CheckCircle, XCircle, DollarSign } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -55,7 +55,25 @@ export default function AdminDashboard() {
     }
   }
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   const dashboardCards = [
+    {
+      title: "Total Donations",
+      icon: DollarSign,
+      count: formatCurrency(stats.counts.totalDonations || 0),
+      href: "/admin/payments",
+      color: "bg-green-500",
+      textColor: "text-green-500",
+      bgColor: "bg-green-50",
+      isCurrency: true,
+    },
     {
       title: "Total Volunteers",
       icon: Users,
@@ -93,15 +111,6 @@ export default function AdminDashboard() {
       textColor: "text-pink-500",
       bgColor: "bg-pink-50",
     },
-    {
-      title: "Resources",
-      icon: FileText,
-      count: stats.counts.resources,
-      href: "/admin/resources",
-      color: "bg-emerald-500",
-      textColor: "text-emerald-500",
-      bgColor: "bg-emerald-50",
-    },
   ]
 
   if (loading) {
@@ -116,13 +125,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div>
-        <h1 className="text-3xl font-bold text-[#022741] mb-2">Dashboard Overview</h1>
-        <p className="text-gray-500">Welcome back, Admin. Here's what's happening today.</p>
-      </div>
-
+    <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {dashboardCards.map((card) => {
@@ -147,7 +150,7 @@ export default function AdminDashboard() {
                   <h3 className="text-sm font-medium text-gray-500 mb-1">{card.title}</h3>
                   <div className="flex items-end gap-2">
                     <span className="text-3xl font-bold text-gray-800">{card.count}</span>
-                    <span className="text-xs text-gray-400 mb-1.5">items</span>
+                    {!card.isCurrency && <span className="text-xs text-gray-400 mb-1.5">items</span>}
                   </div>
                 </div>
 
@@ -164,76 +167,138 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
         {/* Recent Activity / New Volunteers */}
-        <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Activity className="w-5 h-5 text-[#022741]" />
-              <h2 className="text-lg font-bold text-[#022741]">Recent Volunteers</h2>
-            </div>
-            <Link href="/admin/volunteers" className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline">
-              View All
-            </Link>
-          </div>
+        <div className="xl:col-span-2 space-y-8">
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-gray-50/50">
-                <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Plan</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {stats.recentActivity.volunteers.length === 0 ? (
+          {/* Recent Donations */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <DollarSign className="w-5 h-5 text-[#022741]" />
+                <h2 className="text-lg font-bold text-[#022741]">Recent Donations</h2>
+              </div>
+              <Link href="/admin/payments" className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline">
+                View All
+              </Link>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50/50">
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500 text-sm">
-                      No recent activity.
-                    </td>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Donor</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Status</th>
                   </tr>
-                ) : (
-                  stats.recentActivity.volunteers.map((volunteer) => (
-                    <tr key={volunteer._id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs overflow-hidden">
-                            {volunteer.profilePicUrl ? (
-                              <img src={volunteer.profilePicUrl} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              volunteer.name.charAt(0)
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">{volunteer.name}</p>
-                            <p className="text-xs text-gray-500">{volunteer.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                          {volunteer.validity}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(volunteer.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${volunteer.status === 'approved' ? 'bg-green-100 text-green-700' :
-                            volunteer.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                              'bg-amber-100 text-amber-700'
-                          }`}>
-                          {volunteer.status === 'approved' && <CheckCircle className="w-3 h-3" />}
-                          {volunteer.status === 'rejected' && <XCircle className="w-3 h-3" />}
-                          {volunteer.status === 'pending' && <Clock className="w-3 h-3" />}
-                          <span className="capitalize">{volunteer.status}</span>
-                        </span>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {stats.recentActivity.donations?.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-8 text-center text-gray-500 text-sm">
+                        No recent donations.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    stats.recentActivity.donations?.map((donation) => (
+                      <tr key={donation._id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">{donation.donorName}</p>
+                            <p className="text-xs text-gray-500">{donation.donorEmail}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-bold text-[#022741]">{formatCurrency(donation.amount)}</span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {new Date(donation.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            <CheckCircle className="w-3 h-3" />
+                            Success
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Recent Volunteers */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-[#022741]" />
+                <h2 className="text-lg font-bold text-[#022741]">Recent Volunteers</h2>
+              </div>
+              <Link href="/admin/volunteers" className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline">
+                View All
+              </Link>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50/50">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Plan</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {stats.recentActivity.volunteers.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-8 text-center text-gray-500 text-sm">
+                        No recent activity.
+                      </td>
+                    </tr>
+                  ) : (
+                    stats.recentActivity.volunteers.map((volunteer) => (
+                      <tr key={volunteer._id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs overflow-hidden">
+                              {volunteer.profilePicUrl ? (
+                                <img src={volunteer.profilePicUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                volunteer.name.charAt(0)
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900 text-sm">{volunteer.name}</p>
+                              <p className="text-xs text-gray-500">{volunteer.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            {volunteer.validity}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {new Date(volunteer.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${volunteer.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            volunteer.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                            {volunteer.status === 'approved' && <CheckCircle className="w-3 h-3" />}
+                            {volunteer.status === 'rejected' && <XCircle className="w-3 h-3" />}
+                            {volunteer.status === 'pending' && <Clock className="w-3 h-3" />}
+                            <span className="capitalize">{volunteer.status}</span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 

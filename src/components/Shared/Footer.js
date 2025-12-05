@@ -27,7 +27,7 @@ export default function Footer() {
   ]
 
   const actionLinks = [
-    { label: "Donate Now", href: "/donate" },
+    { label: "Donate Now", href: "/donate-now" },
     { label: "Become a Volunteer", href: "/apply-volunteer" },
     { label: "Corporate Partnership", href: "/corporate-partnership" },
     { label: "Work with Us", href: "/work-with-us" },
@@ -122,7 +122,7 @@ export default function Footer() {
               <div className="flex gap-3 text-sm text-gray-400">
                 <MapPin className="w-5 h-5 flex-shrink-0" style={{ color: yellowColor }} />
                 <span>
-                  Saraswati Vidya Nivas, Koramtoli,<br />
+                  Saraswati Vidya Nivas, Karamtoli,<br />
                   Behind Dr S N Yadav, Morabadi,<br />
                   Ranchi, Jharkhand 834001
                 </span>
@@ -139,7 +139,6 @@ export default function Footer() {
               </div>
             </div>
           </div>
-
         </div>
 
         {/* BOTTOM BAR */}
@@ -147,6 +146,9 @@ export default function Footer() {
           <div className="text-center md:text-left">
             <p>© {new Date().getFullYear()} Prayas by Aarya Foundation. All rights reserved.</p>
             <p className="mt-1">CIN: U85499JH2017NPL024878</p>
+            <p className="mt-1">
+              Designed and Maintained By <a href="https://webitya.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Webitya</a>
+            </p>
           </div>
 
           <div className="flex items-center gap-6">

@@ -1,22 +1,19 @@
 // lib/phonepe/payment.js
+
 import {
     MetaInfo,
-    StandardCheckoutPayRequest,
-    CreateSdkOrderRequest
+    StandardCheckoutPayRequest
 } from "pg-sdk-node";
 import { RefundRequest } from "pg-sdk-node";
-import { phonepeClient } from "./client";
+import { getPhonePeClient } from "./client";
 
-// -----------------------------------------
-// 1. Create Payment (Redirect flow)
-// -----------------------------------------
-export async function createPhonePeOrder({
-    orderId,
-    amount,
-    redirectUrl,
-    meta = {}
-}) {
+// --------------------------------------------------
+// 1. Create Payment (Redirect Checkout Flow)
+// --------------------------------------------------
+export async function createPhonePeOrder({ orderId, amount, redirectUrl, meta = {} }) {
     try {
+        const phonepeClient = getPhonePeClient(); // SAFE INIT (No build errors)
+
         const metaInfo = MetaInfo.builder()
             .udf1(meta.name || "")
             .udf2(meta.email || "")
@@ -43,15 +40,20 @@ export async function createPhonePeOrder({
         };
     } catch (error) {
         console.error("❌ PhonePe Create Order Error:", error);
-        return { success: false, message: error.message };
+        return {
+            success: false,
+            message: error.message || "Failed to create PhonePe order."
+        };
     }
 }
 
-// -----------------------------------------
-// 2. Check Order Status
-// -----------------------------------------
+// --------------------------------------------------
+// 2. Check Payment Status from PhonePe
+// --------------------------------------------------
 export async function checkPhonePeStatus(orderId) {
     try {
+        const phonepeClient = getPhonePeClient(); // SAFE INIT
+
         const response = await phonepeClient.getOrderStatus(orderId);
 
         return {
@@ -64,13 +66,16 @@ export async function checkPhonePeStatus(orderId) {
         };
     } catch (error) {
         console.error("❌ PhonePe Status Check Error:", error);
-        return { success: false, message: error.message };
+        return {
+            success: false,
+            message: error.message || "Failed to fetch payment status."
+        };
     }
 }
 
-// -----------------------------------------
-// 3. Validate Callback Signature
-// -----------------------------------------
+// --------------------------------------------------
+// 3. Validate PhonePe Callback (Webhook)
+// --------------------------------------------------
 export async function validatePhonePeCallback({
     username,
     password,
@@ -78,6 +83,8 @@ export async function validatePhonePeCallback({
     responseBodyString
 }) {
     try {
+        const phonepeClient = getPhonePeClient(); // SAFE INIT
+
         const result = phonepeClient.validateCallback(
             username,
             password,
@@ -87,21 +94,21 @@ export async function validatePhonePeCallback({
 
         return { success: true, data: result };
     } catch (error) {
-        console.error("❌ Callback Validation Error:", error);
-        return { success: false, message: error.message };
+        console.error("❌ PhonePe Callback Validation Error:", error);
+        return {
+            success: false,
+            message: error.message || "Callback signature validation failed."
+        };
     }
 }
 
-// -----------------------------------------
-// 4. Refund Payment (optional)
-// -----------------------------------------
-
-export async function refundPhonePeOrder({
-    refundId,
-    merchantOrderId,
-    amount
-}) {
+// --------------------------------------------------
+// 4. Refund Payment (PhonePe Refund API)
+// --------------------------------------------------
+export async function refundPhonePeOrder({ refundId, merchantOrderId, amount }) {
     try {
+        const phonepeClient = getPhonePeClient(); // SAFE INIT
+
         const request = RefundRequest.builder()
             .amount(amount)
             .merchantRefundId(refundId)
@@ -112,7 +119,10 @@ export async function refundPhonePeOrder({
 
         return { success: true, data: response };
     } catch (error) {
-        console.error("❌ Refund Error:", error);
-        return { success: false, message: error.message };
+        console.error("❌ PhonePe Refund Error:", error);
+        return {
+            success: false,
+            message: error.message || "Refund request failed."
+        };
     }
 }

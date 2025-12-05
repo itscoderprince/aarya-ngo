@@ -8,7 +8,7 @@ export default function MissionViewPage() {
   return (
     <section className="bg-[#011728] text-white py-20 px-6">
       <div className="max-w-4xl mx-auto space-y-12">
-        
+
         {/* Vision */}
         <div className="bg-white text-[#011728] rounded-2xl shadow-lg p-10 border-l-8 border-[#FFB70B]">
           <h2 className="text-3xl font-bold mb-4 text-[#011728]">Our Vision</h2>
