@@ -13,6 +13,7 @@ const VALIDITY_PRICES = {
   "lifetime": 5100,
 };
 
+// Base URL
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 // ⛔ Prevent running this API during Vercel build
